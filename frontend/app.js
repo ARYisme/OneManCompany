@@ -3024,7 +3024,8 @@ class AppController {
     // Find and activate this one
     const items = document.querySelectorAll('.ceo-oneonone-item');
     items.forEach(el => {
-      if (el.textContent === this._resolveEmployeeName(conv.employee_id)) {
+      const _zh = window.OmcZhTW ? window.OmcZhTW.conv : (t) => t;
+      if (_zh(el.textContent) === _zh(this._resolveEmployeeName(conv.employee_id))) {
         el.classList.add('active');
       }
     });

@@ -110,10 +110,12 @@ class XTermLog {
   }
 
   writeln(text) {
+    if (window.OmcZhTW) text = window.OmcZhTW.conv(text);  // zh-TW display only
     this._term.writeln(text);
   }
 
   write(text) {
+    if (window.OmcZhTW) text = window.OmcZhTW.conv(text);  // zh-TW display only
     this._term.write(text);
   }
 

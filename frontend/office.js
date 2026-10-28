@@ -951,7 +951,7 @@ class OfficeRenderer {
 
     // Name tag
     ctx.font = '8px "Noto Sans TC", "PingFang TC", "Microsoft JhengHei", "Noto Sans CJK TC", sans-serif';
-    const displayName = data.nickname || (data.name || data.role || '').substring(0, 8);
+    const displayName = (window.OmcZhTW ? window.OmcZhTW.name(data.nickname) : data.nickname) || (data.name || data.role || '').substring(0, 8);
     const lvlTag = data.level ? ` L${data.level}` : '';
     const nameText = displayName + lvlTag;
     const nameW = ctx.measureText(nameText).width;
