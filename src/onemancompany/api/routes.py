@@ -5240,26 +5240,20 @@ async def get_tool_definition(tool_id: str):
         service_name = oauth_cfg.get("service_name", "")
         client_id_env = oauth_cfg.get("client_id_env", "")
         client_secret_env = oauth_cfg.get("client_secret_env", "")
-        has_credentials = bool(os.environ.get(client_id_env)) and bool(os.environ.get(client_secret_env))
+        from onemancompany.core.oauth import resolve_client_credentials
+        _def_config = _tool_oauth_config(oauth_cfg)
+        raw_id, _raw_secret, credentials_source = resolve_client_credentials(_def_config)
+        has_credentials = bool(credentials_source)
 
         is_authorized = False
         if has_credentials:
             try:
-                from onemancompany.core.oauth import get_oauth_token, OAuthServiceConfig
-                config = OAuthServiceConfig(
-                    service_name=service_name,
-                    authorize_url=oauth_cfg.get("authorize_url", ""),
-                    token_url=oauth_cfg.get("token_url", ""),
-                    scopes=oauth_cfg.get("scopes", ""),
-                    client_id_env=client_id_env,
-                    client_secret_env=client_secret_env,
-                )
-                is_authorized = get_oauth_token(config) is not None
+                from onemancompany.core.oauth import get_oauth_token
+                is_authorized = get_oauth_token(_def_config) is not None
             except Exception as exc:
                 logger.debug("OAuth token check failed for {}: {}", service_name, exc)
 
         # Provide masked preview of current credentials
-        raw_id = os.environ.get(client_id_env, "")
         client_id_preview = (raw_id[:8] + "..." + raw_id[-4:]) if len(raw_id) > 12 else ("***" if raw_id else "")
 
         # credentials_help — how to obtain API keys
@@ -5281,6 +5275,9 @@ async def get_tool_definition(tool_id: str):
             "client_id_env": client_id_env,
             "client_secret_env": client_secret_env,
             "client_id_preview": client_id_preview,
+            "credentials_source": credentials_source,
+            "client_file_env": oauth_cfg.get("client_file_env", ""),
+            "remote_paste": bool(oauth_cfg.get("remote_paste", False)),
             **help_data,
         })
 
@@ -5417,30 +5414,69 @@ async def tool_oauth_login(tool_id: str):
     if not oauth_cfg:
         raise HTTPException(status_code=400, detail="Tool does not use OAuth")
 
-    service_name = oauth_cfg.get("service_name", "")
     client_id_env = oauth_cfg.get("client_id_env", "")
     client_secret_env = oauth_cfg.get("client_secret_env", "")
 
-    if not os.environ.get(client_id_env) or not os.environ.get(client_secret_env):
+    from onemancompany.core.oauth import _trigger_oauth_popup, resolve_client_credentials
+    config = _tool_oauth_config(oauth_cfg)
+    if not resolve_client_credentials(config)[2]:
+        file_env = oauth_cfg.get("client_file_env", "")
+        extra = f" or {file_env}" if file_env else ""
         return {
             "status": "error",
-            "message": f"Missing credentials. Set env vars: {client_id_env}, {client_secret_env}",
+            "message": f"Missing credentials. Set env vars: {client_id_env}, {client_secret_env}{extra}",
         }
 
-    from onemancompany.core.oauth import OAuthServiceConfig, _trigger_oauth_popup
-    config = OAuthServiceConfig(
-        service_name=service_name,
-        authorize_url=oauth_cfg.get("authorize_url", ""),
-        token_url=oauth_cfg.get("token_url", ""),
-        scopes=oauth_cfg.get("scopes", ""),
-        client_id_env=client_id_env,
-        client_secret_env=client_secret_env,
-    )
     auth_url = _trigger_oauth_popup(config)
     if not auth_url:
         return {"status": "error", "message": "Failed to start OAuth flow"}
 
     return {"status": "ok", "auth_url": auth_url}
+
+
+def _tool_oauth_config(oauth_cfg: dict):
+    """Build an OAuthServiceConfig from a tool.yaml ``oauth:`` block."""
+    from onemancompany.core.oauth import OAuthServiceConfig
+    return OAuthServiceConfig(
+        service_name=oauth_cfg.get("service_name", ""),
+        authorize_url=oauth_cfg.get("authorize_url", ""),
+        token_url=oauth_cfg.get("token_url", ""),
+        scopes=oauth_cfg.get("scopes", ""),
+        client_id_env=oauth_cfg.get("client_id_env", ""),
+        client_secret_env=oauth_cfg.get("client_secret_env", ""),
+        client_file_env=oauth_cfg.get("client_file_env", ""),
+        redirect_port=int(oauth_cfg.get("redirect_port", 8585)),
+    )
+
+
+@router.post("/api/tools/{tool_id}/oauth/exchange")
+async def tool_oauth_exchange(tool_id: str, body: dict):
+    """Finish a tool OAuth login by pasting the redirect URL (remote use).
+
+    Body: {"redirect_url": "http://localhost:8585/callback?code=...&state=..."}
+    (a bare code is also accepted). The code is exchanged inside the container;
+    no tokens are returned.
+    """
+    import yaml as _yaml
+
+    from onemancompany.core.config import TOOLS_DIR
+
+    tool = company_state.tools.get(tool_id)
+    if not tool or not tool.folder_name:
+        raise HTTPException(status_code=404, detail="Tool not found")
+    tool_yaml_path = TOOLS_DIR / tool.folder_name / "tool.yaml"
+    if not tool_yaml_path.exists():
+        raise HTTPException(status_code=404, detail="Tool config not found")
+    tool_data = _yaml.safe_load(read_text_utf(tool_yaml_path)) or {}
+    oauth_cfg = tool_data.get("oauth")
+    if not oauth_cfg:
+        raise HTTPException(status_code=400, detail="Tool does not use OAuth")
+
+    pasted = str((body or {}).get("redirect_url") or (body or {}).get("code") or "")
+    from onemancompany.core.oauth import complete_oauth_from_redirect
+    import asyncio as _asyncio
+    return await _asyncio.to_thread(
+        complete_oauth_from_redirect, _tool_oauth_config(oauth_cfg), pasted)
 
 
 @router.post("/api/tools/{tool_id}/oauth/logout")

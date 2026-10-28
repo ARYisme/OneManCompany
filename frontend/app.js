@@ -6709,8 +6709,11 @@ class AppController {
         <div style="margin-bottom:4px;font-size:6px;color:#aaa;">
           ${esc(s.credentials_help_text)}${s.credentials_help_url ? ` <a href="${esc(s.credentials_help_url)}" target="_blank" rel="noopener" style="color:#6af;">Get credentials &rarr;</a>` : ''}
         </div>${redirectHint}` : redirectHint;
+      // Credentials from a mounted secret file (ARY fork) — no in-UI editing
+      const fromFile = s.credentials_source === 'file';
       // Credentials form (shared across states — collapsible when already configured)
-      const credsForm = `
+      const credsForm = fromFile ? `
+        <div style="margin-bottom:4px;color:#888;font-size:6px;">Client 憑證：由 secret 檔提供（<code>${esc(s.client_file_env || '')}</code>）</div>` : `
         ${helpHtml}
         <div id="${credsFormId}" class="tool-oauth-creds-form" ${s.has_credentials ? 'style="display:none;"' : ''}>
           <div style="margin-bottom:4px;color:#888;font-size:6px;">
@@ -6732,7 +6735,7 @@ class AppController {
           </div>`;
       }
       const preview = s.client_id_preview ? `<span style="color:#666;font-size:6px;margin-left:6px;">Client ID: ${esc(s.client_id_preview)}</span>` : '';
-      const editBtn = `<span class="tool-oauth-edit" onclick="document.getElementById('${credsFormId}').style.display=document.getElementById('${credsFormId}').style.display==='none'?'block':'none'">Edit</span>`;
+      const editBtn = fromFile ? '' : `<span class="tool-oauth-edit" onclick="document.getElementById('${credsFormId}').style.display=document.getElementById('${credsFormId}').style.display==='none'?'block':'none'">Edit</span>`;
       if (!s.is_authorized) {
         return `
           <div class="tool-section">
@@ -6743,6 +6746,15 @@ class AppController {
                 ${editBtn}
               </div>
               <button class="pixel-btn" onclick="window.app._toolAction('login','${esc(toolId)}')">Login with ${esc(s.service_name)}</button>
+              ${s.remote_paste ? `
+              <div style="margin-top:6px;font-size:6px;color:#ccc;">
+                遠端授權：按上面的 Login，在 Google 頁面同意後，瀏覽器會跳到 <code>localhost</code> 並顯示「無法連線」——這是正常的。
+                請把網址列的<b>完整網址</b>複製貼到下面，按「完成授權」。（10 分鐘內有效）
+              </div>
+              <div style="display:flex;gap:4px;margin-top:4px;">
+                <input type="text" id="tool-oauth-redirect-url" placeholder="http://localhost:8585/callback?code=...&state=..." class="tool-oauth-input" style="flex:1;" autocomplete="off" />
+                <button class="pixel-btn small" onclick="window.app._toolAction('exchange','${esc(toolId)}')">完成授權</button>
+              </div>` : ''}
               ${credsForm}
             </div>
           </div>`;
@@ -6949,6 +6961,21 @@ class AppController {
         } else {
           this._showToast(data.message || 'OAuth login failed', 'error');
         }
+        break;
+      }
+      case 'exchange': {
+        const field = document.getElementById('tool-oauth-redirect-url');
+        const pasted = (field?.value || '').trim();
+        if (!pasted) { this._showToast('請先貼上瀏覽器網址列的完整網址', 'error'); return; }
+        const res = await fetch(`/api/tools/${esc}/oauth/exchange`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ redirect_url: pasted }),
+        });
+        const data = await res.json();
+        if (field) field.value = '';
+        if (data.status === 'ok') { this._showToast('授權完成', 'success'); this.openToolDetail(toolId); }
+        else this._showToast(data.message || 'Authorization failed', 'error');
         break;
       }
       case 'logout': {

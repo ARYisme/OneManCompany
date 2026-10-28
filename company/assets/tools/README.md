@@ -199,7 +199,7 @@ curl -s http://localhost:8000/api/tools/your_tool/definition | \
 
 | Tool | OAuth | Env Vars | Description |
 |---|---|---|---|
-| `gmail` | Google OAuth | — | Gmail search, read, send, draft |
+| `gmail` | Google OAuth | — | Gmail search, read, draft (ARY fork: drafts-only, no send) |
 | `roblox_cloud` | Roblox OAuth | — | Roblox Open Cloud API |
 | `opensandbox` | — | — | Container-based code execution |
 | `pm_tools` | — | — | Project management utilities |

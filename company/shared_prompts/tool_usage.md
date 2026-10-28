@@ -27,7 +27,7 @@ When a task involves operations that can be completed using system tools, **you 
 ### Applicable Scenarios
 | Task Type | Wrong Approach | Correct Approach |
 |-----------|---------------|-----------------|
-| Send/draft email | Write email content as plain text in response | Call `gmail_create_draft` or `gmail_send` to create a real draft |
+| Draft email | Write email content as plain text in response | Call `gmail_create_draft` to create a real draft (drafts only — sending is not possible; ARY reviews and sends), then report_to_ceo() that a draft is waiting |
 | Create calendar event | Only describe event information | Call the calendar tool to create a real event |
 | Save file | Only display file content | Call `write` to save an actual file |
 | Code execution | Only paste code snippets | Actually run in sandbox and provide execution results |

@@ -4,6 +4,7 @@
 
 ## 2026-10-28
 
+- Gmail 只能寫草稿（uzena.nari@gmail.com）：刪除 `gmail_send`、`gmail_reply`；`gmail_create_draft` 支援回覆同串（threadId、In-Reply-To、References）、cc/bcc、UTF-8 中文、From 固定 uzena.nari，回傳繁中「請 ARY 自己審核寄出」提示；`_api_request` 拒絕任何 send 路徑。權限改 `gmail.readonly` + `gmail.compose`（不寄信的保證來自程式碼）。OAuth：client 憑證可由唯讀 secret 檔提供（`GOOGLE_OAUTH_CLIENT_FILE`），遠端授權改「貼回跳轉網址」（`POST /api/tools/{id}/oauth/exchange`，不開新 port）。**尚未部署**。詳見 [email-drafts-only.md](email-drafts-only.md)。
 - `web_fetch` 工具：市場研究員（`ary-market-researcher`）可打開公開網頁讀全文。
   後端 crawl4ai（有 token 時）＋標準庫 fallback；SSRF 防護、20 秒 timeout、2 MB 上限。
   詳見 [web-tools.md](web-tools.md)。
