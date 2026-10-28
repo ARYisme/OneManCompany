@@ -1,0 +1,157 @@
+/* ==========================================================================
+ * omc-readable.css — ARY 本地覆寫（loaded AFTER style.css）
+ *
+ * 1) 一般文字改用可讀字體（系統字體 + 繁中字體），像素字體只留在標題/logo。
+ * 2) 統一字級：把 5–9px 的像素字級拉回可讀範圍；inline 寫死的 4.5–8px 一併覆蓋。
+ * 3) 手機 / 平板版面：蓋掉 resize-handler.js 寫進 inline 的三欄 grid。
+ *
+ * 想回到原樣：把 index.html 裡引用這個檔的那行刪掉即可。
+ * ========================================================================== */
+
+:root {
+  --omc-font-ui: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial,
+                 "PingFang TC", "Noto Sans TC", "Noto Sans CJK TC", "Microsoft JhengHei",
+                 "Heiti TC", sans-serif;
+  --omc-font-code: "JetBrains Mono", "Cascadia Code", Consolas, "SF Mono", Menlo, monospace,
+                   "PingFang TC", "Noto Sans TC", "Noto Sans CJK TC", "Microsoft JhengHei";
+  /* 像素字體只有拉丁字母；中文接繁中黑體，不要再掉到日文字形 */
+  --font-pixel: "Press Start 2P", "PingFang TC", "Noto Sans TC", "Noto Sans CJK TC",
+                "Microsoft JhengHei", monospace;
+  --font-mono: var(--omc-font-code);
+
+  /* 字級：預設 --font-boost = 2px 時 = 11/12/13/14/16/22px；設定面板的滑桿仍有效 */
+  --size-1: calc(11px + var(--font-boost) - 2px);
+  --size-2: calc(12px + var(--font-boost) - 2px);
+  --size-3: calc(13px + var(--font-boost) - 2px);
+  --size-4: calc(14px + var(--font-boost) - 2px);
+  --size-5: calc(16px + var(--font-boost) - 2px);
+  --size-6: calc(22px + var(--font-boost) - 2px);
+}
+
+/* ---------- 1. 字體 ---------- */
+/* :where() 讓特異性 = 0；!important 才能蓋過 style.css 和 app.js 的 inline font-family */
+:where(body, body *):not(:where(
+    .pixel-title, .pixel-title *,
+    .xterm, .xterm *,
+    pre, pre *, code, kbd, samp,
+    .md-code-block, .md-code-block *, .md-inline-code,
+    .fe-diff-col, .tool-yaml-content, .tool-oauth-input,
+    [class^="bg-task"], [class*=" bg-task"]
+)) {
+  font-family: var(--omc-font-ui) !important;
+  letter-spacing: normal;
+}
+
+:where(pre, code, kbd, samp, .md-code-block, .md-code-block *, .md-inline-code,
+       .fe-diff-col, .tool-yaml-content, .tool-oauth-input,
+       [class^="bg-task"], [class*=" bg-task"]) {
+  font-family: var(--omc-font-code) !important;
+}
+
+/* 裝飾用：logo 與面板標題保留像素風 */
+:where(.pixel-title, .pixel-title *) {
+  font-family: var(--font-pixel) !important;
+}
+
+body { line-height: 1.5; }
+
+/* ---------- 2. 寫死的過小字級 ---------- */
+.rehire-btn, .batch-hire-btn, .api-test-btn, .deferred-exec-btn,
+.onboarding-item-message, .bubble-sender, .task-result-report .md-h3,
+.fe-diff-col, .md-inline-code, .deferred-reason, .deferred-expired,
+.deferred-active, .emp-taskboard-item.sub-task, .emp-log-entry {
+  font-size: var(--text-label) !important;
+}
+.md-h3 { font-size: var(--text-body) !important; }
+/* 招募卡片尺寸固定，只拉到 9px，避免撐破卡片 */
+.card-front .card-tags, .card-front .card-cost, .card-model, .card-hosting,
+.card-back, .card-back .card-detail-text {
+  font-size: 9px;
+}
+/* app.js / index.html 用 inline style 寫死的 4.5–8px */
+[style*="font-size:4.5px"], [style*="font-size: 4.5px"],
+[style*="font-size:5px"],   [style*="font-size: 5px"],
+[style*="font-size:5.5px"], [style*="font-size: 5.5px"],
+[style*="font-size:6px"],   [style*="font-size: 6px"],
+[style*="font-size:6.5px"], [style*="font-size: 6.5px"],
+[style*="font-size:7px"],   [style*="font-size: 7px"],
+[style*="font-size:7.5px"], [style*="font-size: 7.5px"],
+[style*="font-size:8px"],   [style*="font-size: 8px"],
+[style*="calc(5px"] {
+  font-size: var(--text-label) !important;
+}
+
+/* ---------- 3. 平板（769–1024px）：兩欄，蓋掉 JS inline 的三欄 ---------- */
+@media (max-width: 1024px) and (min-width: 769px) {
+  #app {
+    grid-template-columns: 220px minmax(0, 1fr) !important;
+    grid-template-rows: minmax(0, 1fr) minmax(0, 1fr) minmax(220px, 38vh) !important;
+  }
+}
+
+/* ---------- 4. 手機（≤768px）：單欄直向捲動 ---------- */
+@media (max-width: 768px) {
+  html, body {
+    overflow-x: hidden !important;
+    overflow-y: auto !important;
+    height: auto !important;
+  }
+  /* 改成 flex，JS 寫進 inline 的 grid-template-* 就不再生效 */
+  #app {
+    display: flex !important;
+    flex-direction: column;
+    height: auto !important;
+    min-height: 100dvh;
+    gap: 6px;
+    padding: 4px;
+  }
+  #app > * { width: 100%; min-width: 0; flex: none; }
+
+  #office-panel     { order: 1; height: 52vh; min-height: 300px; }
+  #console-panel    { order: 2; height: 75vh; min-height: 420px; }
+  #left-top-panel   { order: 3; max-height: 45vh; }
+  #roster-panel     { order: 4; display: flex !important; max-height: 55vh; }
+  #left-bottom-panel{ order: 5; height: 40vh; }
+
+  /* office.js 假設 header 高 45px；header 壓成一列、工具列橫向捲動 */
+  #office-panel .panel-header {
+    flex-wrap: nowrap !important;
+    gap: 6px;
+    padding: 4px 6px;
+    height: 45px;
+    overflow: hidden;
+  }
+  #office-panel h1.pixel-title { font-size: 10px; white-space: nowrap; flex-shrink: 0; }
+  #office-panel .version-badge, #last-sync-time { display: none; }
+  #status-bar {
+    flex-wrap: nowrap !important;
+    overflow-x: auto;
+    gap: 6px;
+    min-width: 0;
+    scrollbar-width: none;
+  }
+  #status-bar::-webkit-scrollbar { display: none; }
+  #status-bar > * { flex-shrink: 0; }
+  #status-bar button { min-width: 36px; min-height: 36px; padding: 4px; }
+
+  /* CEO console：會話清單收到上方、對話佔滿 */
+  #ceo-avatar-area { flex-wrap: wrap; }
+  #ceo-split { flex-direction: column; }
+  #ceo-project-list { width: 100% !important; max-height: 110px; border-right: none; border-bottom: 1px solid #222; }
+  #ceo-list-toggle { display: none; }
+  #ceo-conv-panel { min-height: 0; flex: 1; }
+
+  /* iOS 輸入框 <16px 會自動放大頁面 */
+  input, textarea, select { font-size: 16px !important; }
+
+  /* modal 全螢幕 */
+  .modal-content {
+    width: 100vw !important;
+    max-width: 100vw !important;
+    max-height: 100dvh;
+    margin: 0 !important;
+    overflow-y: auto;
+    border-radius: 0;
+  }
+  .floating-panel { max-height: 75vh; overflow-y: auto; }
+}

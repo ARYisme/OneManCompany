@@ -55,10 +55,13 @@ class Camera {
 
   _bindEvents() {
     const c = this.canvas;
-    c.addEventListener('mousedown',  e => this._onDown(e));
-    c.addEventListener('mousemove',  e => this._onMove(e));
-    c.addEventListener('mouseup',    ()  => this._onUp());
-    c.addEventListener('mouseleave', ()  => this._onUp());
+    // pointer events = mouse + touch + pen (手機可拖曳辦公室畫面)
+    c.style.touchAction = 'none';
+    c.addEventListener('pointerdown',   e => this._onDown(e));
+    c.addEventListener('pointermove',   e => this._onMove(e));
+    c.addEventListener('pointerup',     ()  => this._onUp());
+    c.addEventListener('pointerleave',  ()  => this._onUp());
+    c.addEventListener('pointercancel', ()  => this._onUp());
     c.addEventListener('wheel',      e => this._onWheel(e), { passive: false });
   }
 

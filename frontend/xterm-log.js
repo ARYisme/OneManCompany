@@ -45,7 +45,7 @@ class XTermLog {
       convertEol: true,
       wordWrap: true,
       fontSize: this._fontSize,
-      fontFamily: "'JetBrains Mono', 'Fira Code', 'SF Mono', 'Cascadia Code', monospace",
+      fontFamily: "'JetBrains Mono', 'Fira Code', 'SF Mono', 'Cascadia Code', monospace, 'PingFang TC', 'Noto Sans TC', 'Noto Sans CJK TC', 'Microsoft JhengHei'",
       theme: {
         background: '#0a0a0a',
         foreground: '#b0b0b0',
