@@ -1,7 +1,7 @@
 /* trace-viewer.css — Trace modal container styles */
 
 .trace-container {
-  font-family: 'JetBrains Mono', 'Fira Code', 'SF Mono', 'Cascadia Code', monospace;
+  font-family: 'JetBrains Mono', 'Cascadia Code', Consolas, Menlo, monospace, 'Noto Sans TC', 'PingFang TC', 'Microsoft JhengHei', 'Noto Sans CJK TC';
   font-size: 12px;
   line-height: 1.5;
   background: #0a0a0a;

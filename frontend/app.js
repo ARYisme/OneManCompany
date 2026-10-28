@@ -5142,7 +5142,7 @@ class AppController {
         input.type = f.secret ? 'password' : 'text';
         input.placeholder = f.placeholder || '';
         input.value = f.default || '';
-        input.style.cssText = 'width:100%;background:var(--bg-dark);color:var(--pixel-white);border:2px solid var(--border);font-family:"Press Start 2P",monospace;font-size:7px;padding:6px;';
+        input.style.cssText = 'width:100%;background:var(--bg-dark);color:var(--pixel-white);border:2px solid var(--border);font-family:var(--font-ui);font-size:7px;padding:6px;';
         inputs[f.name] = input;
         form.appendChild(label);
         form.appendChild(input);
@@ -5747,7 +5747,7 @@ class AppController {
                   <div id="oauth-code-input" style="display:none;margin-top:4px;">
                     <label style="font-size:5.5px;color:var(--pixel-yellow);">Paste the code from Anthropic:</label>
                     <div style="display:flex;gap:4px;margin-top:2px;">
-                      <input id="oauth-code-field" type="text" placeholder="code#state" style="flex:1;font-size:6px;padding:3px 6px;background:var(--bg-dark);color:var(--pixel-green);border:1px solid var(--border);font-family:monospace;" />
+                      <input id="oauth-code-field" type="text" placeholder="code#state" style="flex:1;font-size:6px;padding:3px 6px;background:var(--bg-dark);color:var(--pixel-green);border:1px solid var(--border);font-family:var(--font-mono);" />
                       <button class="pixel-btn small" onclick="app._submitOAuthCode()">Submit</button>
                     </div>
                   </div>
@@ -7000,7 +7000,7 @@ class AppController {
       <button class="btn-back" onclick="window.app.openToolDetail('${escH(toolId)}')">&larr; Back</button>
       <div style="padding:4px;">
         <h3 style="font-size:8px;margin:4px 0;">${escH(filename)}</h3>
-        <textarea id="template-editor" style="width:100%;min-height:200px;background:#1a1a2e;color:#e0e0e0;border:1px solid #444;font-family:monospace;font-size:7px;padding:4px;resize:vertical;">${escH(data.content || '')}</textarea>
+        <textarea id="template-editor" style="width:100%;min-height:200px;background:#1a1a2e;color:#e0e0e0;border:1px solid #444;font-family:var(--font-mono);font-size:7px;padding:4px;resize:vertical;">${escH(data.content || '')}</textarea>
         <div style="margin-top:4px;display:flex;gap:4px;">
           <button class="pixel-btn" onclick="window.app._templateSave('${escH(toolId)}','${escH(filename)}')">Save</button>
           <button class="pixel-btn small" onclick="window.app.openToolDetail('${escH(toolId)}')">Cancel</button>
@@ -7042,7 +7042,7 @@ class AppController {
       <button class="btn-back" onclick="window.app.openToolDetail('${esc(toolId)}')">&larr; Back</button>
       <div style="padding:4px;">
         <h3 style="font-size:8px;margin:4px 0;">New: ${esc(filename)}</h3>
-        <textarea id="template-editor" style="width:100%;min-height:200px;background:#1a1a2e;color:#e0e0e0;border:1px solid #444;font-family:monospace;font-size:7px;padding:4px;resize:vertical;">${esc(defaultContent)}</textarea>
+        <textarea id="template-editor" style="width:100%;min-height:200px;background:#1a1a2e;color:#e0e0e0;border:1px solid #444;font-family:var(--font-mono);font-size:7px;padding:4px;resize:vertical;">${esc(defaultContent)}</textarea>
         <div style="margin-top:4px;display:flex;gap:4px;">
           <button class="pixel-btn" onclick="window.app._templateSave('${esc(toolId)}','${esc(filename)}')">Create</button>
           <button class="pixel-btn small" onclick="window.app.openToolDetail('${esc(toolId)}')">Cancel</button>

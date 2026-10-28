@@ -228,7 +228,7 @@ function _panelToForeignObject(el, appRect) {
   const html = new XMLSerializer().serializeToString(clone);
 
   return `<foreignObject x="${x}" y="${y}" width="${w}" height="${h}">
-    <div xmlns="http://www.w3.org/1999/xhtml" style="width:${w}px;height:${h}px;overflow:hidden;font-family:'Press Start 2P',monospace;background:#0d0d1a;">
+    <div xmlns="http://www.w3.org/1999/xhtml" style="width:${w}px;height:${h}px;overflow:hidden;font-family:'Noto Sans TC','PingFang TC','Microsoft JhengHei','Noto Sans CJK TC',sans-serif;background:#0d0d1a;">
       ${html}
     </div>
   </foreignObject>\n`;

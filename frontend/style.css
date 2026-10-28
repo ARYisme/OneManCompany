@@ -1,4 +1,4 @@
-/* ===== One Man Company — Pixel Art Theme ===== */
+/* ===== One Man Company — Pixel Art Theme (fonts unified to Noto Sans TC) ===== */
 
 :root {
   --bg-dark: #0d0d1a;
@@ -16,8 +16,9 @@
   --pixel-gray: #888899;
   --text-dim: #6666aa;
   --text-primary: #e0e0f0;
-  --font-pixel: 'Press Start 2P', monospace;
-  --font-mono: 'Courier New', Courier, monospace;
+  --font-ui: 'Noto Sans TC', 'PingFang TC', 'Microsoft JhengHei', 'Noto Sans CJK TC', sans-serif;
+  --font-pixel: var(--font-ui);  /* 像素字體已移除，統一用 Noto Sans TC */
+  --font-mono: 'JetBrains Mono', 'Cascadia Code', Consolas, Menlo, monospace, 'Noto Sans TC', 'PingFang TC', 'Microsoft JhengHei', 'Noto Sans CJK TC';
   --bg-card: #16162a;
   --font-boost: 2px;  /* Text size boost: 0px (small), 2px (medium, default), 4px (large) */
 
@@ -92,7 +93,7 @@ select:focus-visible {
 body {
   background: var(--bg-dark);
   color: var(--pixel-white);
-  font-family: 'Press Start 2P', monospace;
+  font-family: var(--font-ui);
   font-size: var(--text-subheading);
   margin: 0;
   overflow: hidden;
@@ -404,7 +405,7 @@ h3.pixel-title { font-size: var(--text-label); }
   background: transparent;
   border: 1px solid var(--pixel-orange);
   color: var(--pixel-orange);
-  font-family: 'Press Start 2P', monospace;
+  font-family: var(--font-ui);
   font-size: var(--text-subheading);
   padding: 4px 6px;
   cursor: pointer;
@@ -442,7 +443,7 @@ h3.pixel-title { font-size: var(--text-label); }
   background: #0a0a18;
   color: var(--pixel-white);
   border: 2px solid var(--border);
-  font-family: 'Press Start 2P', monospace;
+  font-family: var(--font-ui);
   font-size: var(--text-body);
   padding: var(--sp-2);
   resize: none;
@@ -491,7 +492,7 @@ h3.pixel-title { font-size: var(--text-label); }
   color: #000;
   border: none;
   padding: 10px 8px;
-  font-family: 'Press Start 2P', monospace;
+  font-family: var(--font-ui);
   font-size: var(--text-label);
   cursor: pointer;
   box-shadow: 3px 3px 0 #00994d;
@@ -616,7 +617,7 @@ h3.pixel-title { font-size: var(--text-label); }
   background: var(--bg-dark);
   color: var(--pixel-white);
   border: 1px solid var(--border);
-  font-family: 'Press Start 2P', monospace;
+  font-family: var(--font-ui);
   font-size: var(--text-micro);
   padding: 3px 4px;
   outline: none;
@@ -750,7 +751,7 @@ h3.pixel-title { font-size: var(--text-label); }
   background: #0a0a18;
   color: var(--pixel-white);
   border: 2px solid var(--border);
-  font-family: 'Press Start 2P', monospace;
+  font-family: var(--font-ui);
   font-size: var(--text-label);
   padding: var(--sp-1) var(--sp-2);
   outline: none;
@@ -776,7 +777,7 @@ h3.pixel-title { font-size: var(--text-label); }
   background: #0a0a18;
   color: var(--pixel-white);
   border: 2px solid var(--border);
-  font-family: 'Press Start 2P', monospace;
+  font-family: var(--font-ui);
   font-size: var(--text-label);
   padding: var(--sp-1) var(--sp-2);
   resize: none;
@@ -1029,7 +1030,7 @@ h3.pixel-title { font-size: var(--text-label); }
   background: none;
   border: 2px solid var(--pixel-red);
   color: var(--pixel-red);
-  font-family: 'Press Start 2P', monospace;
+  font-family: var(--font-ui);
   font-size: var(--text-body);
   padding: var(--sp-1) var(--sp-2);
   cursor: pointer;
@@ -1100,7 +1101,7 @@ h3.pixel-title { font-size: var(--text-label); }
   background: #0a0a18;
   color: var(--pixel-white);
   border: none;
-  font-family: 'Press Start 2P', monospace;
+  font-family: var(--font-ui);
   font-size: var(--text-label);
   padding: 10px;
   resize: none;
@@ -1376,7 +1377,7 @@ h3.pixel-title { font-size: var(--text-label); }
 }
 
 .avatar-upload-btn {
-  font-family: 'Press Start 2P', monospace;
+  font-family: var(--font-ui);
   font-size: var(--text-label);
   color: var(--pixel-green);
   cursor: pointer;
@@ -1565,7 +1566,7 @@ h3.pixel-title { font-size: var(--text-label); }
 .emp-model-select {
   flex: 1;
   min-width: 0;
-  font-family: monospace;
+  font-family: var(--font-mono);
   font-size: clamp(7px, 1.4vw, 11px);
   background: var(--bg-dark);
   color: var(--pixel-white);
@@ -2724,7 +2725,7 @@ h3.pixel-title { font-size: var(--text-label); }
 
 .chat-textarea {
   flex: 1;
-  font-family: 'Press Start 2P', monospace;
+  font-family: var(--font-ui);
   font-size: var(--text-label);
   background: var(--bg-dark);
   color: var(--pixel-white);
@@ -2808,7 +2809,7 @@ h3.pixel-title { font-size: var(--text-label); }
 .followup-textarea {
   width: 100%;
   font-size: var(--text-label);
-  font-family: 'Press Start 2P', monospace;
+  font-family: var(--font-ui);
   background: var(--bg-dark);
   color: var(--pixel-white);
   border: 1px solid var(--border);
@@ -2951,7 +2952,7 @@ h3.pixel-title { font-size: var(--text-label); }
   color: #4af;
   cursor: pointer;
   font-size: var(--text-label);
-  font-family: monospace;
+  font-family: var(--font-mono);
   padding: 0 3px;
   line-height: 1.4;
 }
@@ -3113,7 +3114,7 @@ h3.pixel-title { font-size: var(--text-label); }
   background: #0a0a18;
   color: var(--pixel-white);
   border: 2px solid var(--border);
-  font-family: 'Press Start 2P', monospace;
+  font-family: var(--font-ui);
   font-size: var(--text-label);
   padding: var(--sp-1) var(--sp-2);
   outline: none;
@@ -3129,7 +3130,7 @@ h3.pixel-title { font-size: var(--text-label); }
   background: #0a0a18;
   color: var(--pixel-white);
   border: 2px solid var(--pixel-green);
-  font-family: 'Press Start 2P', monospace;
+  font-family: var(--font-ui);
   font-size: var(--text-label);
   padding: var(--sp-1) var(--sp-2);
   margin-top: 4px;
@@ -3252,7 +3253,7 @@ h3.pixel-title { font-size: var(--text-label); }
   background: rgba(0, 255, 255, 0.05);
 }
 .settings-section-title {
-  font-family: 'Press Start 2P', monospace;
+  font-family: var(--font-ui);
   font-size: var(--text-label);
   color: var(--pixel-cyan);
 }
@@ -3304,7 +3305,7 @@ h3.pixel-title { font-size: var(--text-label); }
   display: none;
 }
 .api-card-title {
-  font-family: 'Press Start 2P', monospace;
+  font-family: var(--font-ui);
   font-size: var(--text-body);
   color: var(--pixel-white);
 }
@@ -3341,7 +3342,7 @@ h3.pixel-title { font-size: var(--text-label); }
   background: var(--bg-panel);
   border: 1px solid var(--border);
   color: var(--pixel-white);
-  font-family: 'Press Start 2P', monospace;
+  font-family: var(--font-ui);
   font-size: var(--text-label);
   padding: 4px 6px;
   border-radius: var(--radius-sm);
@@ -3362,7 +3363,7 @@ h3.pixel-title { font-size: var(--text-label); }
 }
 .api-test-result {
   font-size: var(--text-label);
-  font-family: 'Press Start 2P', monospace;
+  font-family: var(--font-ui);
   margin-left: 4px;
 }
 .api-test-result.success {
@@ -3408,7 +3409,7 @@ h3.pixel-title { font-size: var(--text-label); }
   background: var(--bg-dark);
   border: 1px solid var(--border);
   color: var(--pixel-white);
-  font-family: 'Press Start 2P', monospace;
+  font-family: var(--font-ui);
   font-size: var(--text-label);
   padding: var(--sp-2);
   resize: vertical;
@@ -3443,7 +3444,7 @@ h3.pixel-title { font-size: var(--text-label); }
 }
 
 .company-culture-card-num {
-  font-family: 'Press Start 2P', monospace;
+  font-family: var(--font-ui);
   font-size: var(--text-body);
   color: var(--pixel-yellow);
   min-width: 20px;
@@ -3545,7 +3546,7 @@ h3.pixel-title { font-size: var(--text-label); }
 .fe-diff-col {
   flex: 1;
   font-size: 5.5px;
-  font-family: monospace;
+  font-family: var(--font-mono);
   line-height: 1.5;
   padding: var(--sp-1);
   white-space: pre-wrap;
@@ -3632,7 +3633,7 @@ h3.pixel-title { font-size: var(--text-label); }
   padding: 0 3px;
   border-radius: var(--radius-sm);
   color: var(--pixel-orange);
-  font-family: monospace;
+  font-family: var(--font-mono);
   font-size: 6.5px;
 }
 
@@ -3642,7 +3643,7 @@ h3.pixel-title { font-size: var(--text-label); }
   border-radius: var(--radius-sm);
   padding: 4px 6px;
   font-size: var(--text-label);
-  font-family: monospace;
+  font-family: var(--font-mono);
   white-space: pre-wrap;
   word-break: break-all;
   color: var(--pixel-green);
@@ -3677,7 +3678,7 @@ h3.pixel-title { font-size: var(--text-label); }
   background: rgba(0, 136, 255, 0.92);
   color: #fff;
   font-size: var(--text-body);
-  font-family: 'Press Start 2P', monospace;
+  font-family: var(--font-ui);
 }
 
 .code-update-banner.hidden {
@@ -3726,7 +3727,7 @@ h3.pixel-title { font-size: var(--text-label); }
   padding: 6px 16px;
   border-radius: var(--radius-sm);
   font-size: var(--text-subheading);
-  font-family: 'Press Start 2P', monospace;
+  font-family: var(--font-ui);
   animation: reconnect-pulse 1.5s ease-in-out infinite;
 }
 
@@ -3962,7 +3963,7 @@ h3.pixel-title { font-size: var(--text-label); }
   background: none;
   border: 1px solid var(--pixel-red);
   color: var(--pixel-red);
-  font-family: 'Press Start 2P', monospace;
+  font-family: var(--font-ui);
   font-size: var(--text-micro);
   padding: 1px 4px;
   cursor: pointer;
@@ -4022,14 +4023,14 @@ h3.pixel-title { font-size: var(--text-label); }
 
 .cron-name {
   color: var(--pixel-white);
-  font-family: 'Press Start 2P', monospace;
+  font-family: var(--font-ui);
   font-size: var(--text-micro);
   word-break: break-all;
 }
 
 .cron-interval {
   color: var(--pixel-yellow);
-  font-family: 'Press Start 2P', monospace;
+  font-family: var(--font-ui);
   font-size: var(--text-micro);
   flex-shrink: 0;
 }
@@ -4051,7 +4052,7 @@ h3.pixel-title { font-size: var(--text-label); }
   background: none;
   border: 1px solid var(--pixel-red);
   color: var(--pixel-red);
-  font-family: 'Press Start 2P', monospace;
+  font-family: var(--font-ui);
   font-size: var(--text-micro);
   padding: 1px 4px;
   cursor: pointer;
@@ -4245,7 +4246,7 @@ h3.pixel-title { font-size: var(--text-label); }
   border: 1px solid var(--pixel-gray);
   color: var(--pixel-gray);
   cursor: pointer;
-  font-family: 'Press Start 2P', monospace;
+  font-family: var(--font-ui);
   font-size: var(--text-label);
   padding: 2px 6px;
   margin-bottom: 8px;
@@ -4277,7 +4278,7 @@ h3.pixel-title { font-size: var(--text-label); }
 }
 
 .tool-yaml-content {
-  font-family: monospace;
+  font-family: var(--font-mono);
   font-size: var(--text-label);
   background: var(--bg-dark);
   padding: 6px;
@@ -4377,7 +4378,7 @@ h3.pixel-title { font-size: var(--text-label); }
   box-sizing: border-box;
   margin-bottom: 4px;
   padding: 3px 6px;
-  font-family: monospace;
+  font-family: var(--font-mono);
   font-size: var(--text-label);
   background: var(--bg-panel);
   border: 1px solid var(--border);
@@ -4433,7 +4434,7 @@ h3.pixel-title { font-size: var(--text-label); }
   background: var(--bg-dark);
   color: var(--pixel-white);
   border: 1px solid var(--border);
-  font-family: 'Press Start 2P', monospace;
+  font-family: var(--font-ui);
   font-size: var(--text-label);
   padding: 2px 4px;
 }
@@ -4594,7 +4595,7 @@ h3.pixel-title { font-size: var(--text-label); }
 /* HR badges (probation, PIP, onboarding) */
 .roster-badge {
   display: inline-block;
-  font-family: 'Press Start 2P', monospace;
+  font-family: var(--font-ui);
   font-size: var(--text-micro);
   padding: 1px 4px;
   border-radius: var(--radius-sm);
@@ -4950,7 +4951,7 @@ h3.pixel-title { font-size: var(--text-label); }
   padding: 2px 8px;
   border-radius: var(--radius-sm);
   margin-left: 8px;
-  font-family: 'Press Start 2P', monospace;
+  font-family: var(--font-ui);
 }
 
 .talent-pool-badge.api {
@@ -4977,7 +4978,7 @@ h3.pixel-title { font-size: var(--text-label); }
 }
 
 .talent-pool-card .talent-name {
-  font-family: 'Press Start 2P', monospace;
+  font-family: var(--font-ui);
   font-size: var(--text-subheading);
   color: var(--text-primary);
 }
@@ -5000,7 +5001,7 @@ h3.pixel-title { font-size: var(--text-label); }
   padding: 2px 6px;
   background: var(--bg-hover);
   border: 1px solid var(--border);
-  font-family: 'Press Start 2P', monospace;
+  font-family: var(--font-ui);
 }
 
 .talent-pool-card .talent-status {
@@ -5122,7 +5123,7 @@ h3.pixel-title { font-size: var(--text-label); }
 .chat-panel-header {
     display: flex; align-items: center; gap: var(--sp-2);
     padding: var(--sp-1) var(--sp-2); border-bottom: 1px solid var(--border);
-    font-size: var(--text-label); font-family: 'Press Start 2P', monospace;
+    font-size: var(--text-label); font-family: var(--font-ui);
 }
 .chat-panel-type {
     background: var(--pixel-green); color: #000;
@@ -5132,7 +5133,7 @@ h3.pixel-title { font-size: var(--text-label); }
 /* EA auto-reply toggle in CEO Inbox header */
 .ea-autoreply-sidebar {
     display: flex; align-items: center; gap: var(--sp-1); cursor: pointer;
-    font-size: var(--text-label); font-family: 'Press Start 2P', monospace; color: var(--text-dim);
+    font-size: var(--text-label); font-family: var(--font-ui); color: var(--text-dim);
     margin-left: auto; padding: 2px 6px;
     border: 1px solid #344; border-radius: var(--radius-sm); background: rgba(0,0,0,0.2);
 }
@@ -5140,18 +5141,18 @@ h3.pixel-title { font-size: var(--text-label); }
 .ea-autoreply-sidebar input[type="checkbox"] { width: 10px; height: 10px; cursor: pointer; }
 .ea-autoreply-sidebar input[type="checkbox"]:checked + span { color: var(--pixel-green); }
 .chat-panel-clear-btn {
-    font-size: var(--text-label); font-family: 'Press Start 2P', monospace; cursor: pointer;
+    font-size: var(--text-label); font-family: var(--font-ui); cursor: pointer;
     background: #355; color: #fff; border: 1px solid #688; padding: 1px 6px;
 }
 .chat-panel-close-btn {
-    font-size: var(--text-label); font-family: 'Press Start 2P', monospace; cursor: pointer;
+    font-size: var(--text-label); font-family: var(--font-ui); cursor: pointer;
     background: #633; color: #fff; border: 1px solid #966; padding: 1px 6px;
 }
 .chat-panel-messages {
     flex: 1; overflow-y: auto; padding: var(--sp-1);
     display: flex; flex-direction: column; gap: var(--sp-1);
 }
-.chat-msg { max-width: 80%; padding: 4px 6px; font-size: var(--text-label); font-family: 'Press Start 2P', monospace; }
+.chat-msg { max-width: 80%; padding: 4px 6px; font-size: var(--text-label); font-family: var(--font-ui); }
 .chat-msg-ceo { align-self: flex-end; background: #234; border: 1px solid #456; }
 .chat-msg-agent { align-self: flex-start; background: #342; border: 1px solid #564; }
 .chat-msg-role { font-weight: bold; margin-bottom: 2px; font-size: var(--text-label); opacity: 0.7; }
@@ -5209,13 +5210,13 @@ h3.pixel-title { font-size: var(--text-label); }
     border-top: 1px solid var(--border);
 }
 .chat-panel-input {
-    flex: 1; font-size: var(--text-label); font-family: 'Press Start 2P', monospace; resize: none;
+    flex: 1; font-size: var(--text-label); font-family: var(--font-ui); resize: none;
     background: var(--bg-dark); color: var(--pixel-white);
     border: 1px solid var(--border); padding: var(--sp-1);
 }
 .chat-panel-actions { display: flex; flex-direction: column; gap: 2px; }
 .chat-panel-send-btn {
-    font-size: var(--text-label); font-family: 'Press Start 2P', monospace; cursor: pointer;
+    font-size: var(--text-label); font-family: var(--font-ui); cursor: pointer;
     background: var(--pixel-green); color: #000; border: none; padding: 2px 8px;
 }
 .chat-panel-upload-label { cursor: pointer; font-size: var(--text-label); text-align: center; }
@@ -5385,7 +5386,7 @@ h3.pixel-title { font-size: var(--text-label); }
   overflow: hidden;
   display: flex;
   flex-direction: column;
-  font-family: 'JetBrains Mono', 'Fira Code', monospace;
+  font-family: var(--font-mono);
   font-size: var(--text-subheading);
   padding: 0;
   transition: width 0.15s, padding 0.15s, opacity 0.15s;
@@ -5552,7 +5553,7 @@ h3.pixel-title { font-size: var(--text-label); }
   color: #44aa44;
   border: 1px solid #222;
   padding: 4px 6px;
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--font-mono);
   font-size: var(--text-subheading);
   resize: none;
   outline: none;
@@ -5574,7 +5575,7 @@ h3.pixel-title { font-size: var(--text-label); }
   margin-bottom: 4px;
   max-height: 120px;
   overflow-y: auto;
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--font-mono);
   font-size: var(--text-subheading);
 }
 #ceo-slash-menu.hidden { display: none; }
@@ -5594,7 +5595,7 @@ h3.pixel-title { font-size: var(--text-label); }
 /* ===== CEO Conversation — DOM renderer ===== */
 .ceo-conv-scroll {
   background: #0a0a0a;
-  font-family: 'JetBrains Mono', 'Fira Code', monospace;
+  font-family: var(--font-mono);
   font-size: var(--text-subheading);
   line-height: 1.6;
   color: #d4d4d4;
@@ -5676,7 +5677,7 @@ h3.pixel-title { font-size: var(--text-label); }
   background: var(--pixel-red);
   color: #fff;
   font-size: var(--text-label);
-  font-family: 'Press Start 2P', monospace;
+  font-family: var(--font-ui);
   padding: 1px 4px;
   border-radius: var(--radius-md);
   margin-left: 4px;
@@ -5714,7 +5715,7 @@ h3.pixel-title { font-size: var(--text-label); }
   justify-content: space-between;
   align-items: center;
   font-size: var(--text-body);
-  font-family: 'Press Start 2P', monospace;
+  font-family: var(--font-ui);
 }
 .mention-item:hover,
 .mention-item.active {

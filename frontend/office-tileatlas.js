@@ -296,7 +296,7 @@ if (window.OMC_DEBUG) window.debugSheet = function(sheetKey, startRow = 0, endRo
     for (let col = 0; col < img.width / TILE_SIZE; col++) {
       ctx.strokeRect(col * TILE_SIZE, r * TILE_SIZE, TILE_SIZE, TILE_SIZE);
       ctx.fillStyle = 'red';
-      ctx.font = '7px sans-serif';
+      ctx.font = '7px "Noto Sans TC", "PingFang TC", "Microsoft JhengHei", "Noto Sans CJK TC", sans-serif';
       ctx.fillText(`${r + startRow},${col}`, col * TILE_SIZE + 2, r * TILE_SIZE + 9);
     }
   }

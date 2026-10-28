@@ -142,7 +142,7 @@ G6.registerNode('org-card', {
                 attrs: {
                     x: avatarX, y: avatarY,
                     text: cfg.avatar || '?',
-                    fontSize: 11, fontWeight: 'bold',
+                    fontFamily: '"Noto Sans TC", "PingFang TC", "Microsoft JhengHei", "Noto Sans CJK TC", sans-serif', fontSize: 11, fontWeight: 'bold',
                     fill: deptColor.text,
                     textAlign: 'center', textBaseline: 'middle',
                 },
@@ -156,7 +156,7 @@ G6.registerNode('org-card', {
                 attrs: {
                     x: w / 2, y: h / 2 - 6,
                     text: cfg.name || '+N more',
-                    fontSize: 13, fontWeight: 'bold',
+                    fontFamily: '"Noto Sans TC", "PingFang TC", "Microsoft JhengHei", "Noto Sans CJK TC", sans-serif', fontSize: 13, fontWeight: 'bold',
                     fill: '#8a8f98',
                     textAlign: 'center', textBaseline: 'middle',
                     cursor: 'pointer',
@@ -167,7 +167,7 @@ G6.registerNode('org-card', {
                 attrs: {
                     x: w / 2, y: h / 2 + 10,
                     text: 'Click to expand',
-                    fontSize: 9, fill: '#62666d',
+                    fontFamily: '"Noto Sans TC", "PingFang TC", "Microsoft JhengHei", "Noto Sans CJK TC", sans-serif', fontSize: 9, fill: '#62666d',
                     textAlign: 'center', textBaseline: 'middle',
                     cursor: 'pointer',
                 },
@@ -182,7 +182,7 @@ G6.registerNode('org-card', {
             attrs: {
                 x: 14, y: 14,
                 text: _truncate(cfg.name || '', 14),
-                fontSize: 12, fontWeight: 'bold',
+                fontFamily: '"Noto Sans TC", "PingFang TC", "Microsoft JhengHei", "Noto Sans CJK TC", sans-serif', fontSize: 12, fontWeight: 'bold',
                 fill: '#f7f8f8',
                 textAlign: 'left', textBaseline: 'middle',
                 cursor: 'pointer',
@@ -203,7 +203,7 @@ G6.registerNode('org-card', {
             attrs: {
                 x: statusX + 6, y: 14,
                 text: _truncate(statusStyle.label, 8),
-                fontSize: 8, fill: statusStyle.color,
+                fontFamily: '"Noto Sans TC", "PingFang TC", "Microsoft JhengHei", "Noto Sans CJK TC", sans-serif', fontSize: 8, fill: statusStyle.color,
                 textAlign: 'left', textBaseline: 'middle',
             },
             name: 'status-label',
@@ -225,7 +225,7 @@ G6.registerNode('org-card', {
             attrs: {
                 x: 14 + badgeW / 2, y: 31,
                 text: badgeText,
-                fontSize: 8, fontWeight: 'bold',
+                fontFamily: '"Noto Sans TC", "PingFang TC", "Microsoft JhengHei", "Noto Sans CJK TC", sans-serif', fontSize: 8, fontWeight: 'bold',
                 fill: deptColor.badge,
                 textAlign: 'center', textBaseline: 'middle',
             },
@@ -238,7 +238,7 @@ G6.registerNode('org-card', {
                 attrs: {
                     x: 14 + badgeW + 6, y: 31,
                     text: _truncate(cfg.role, 20),
-                    fontSize: 9, fill: '#62666d',
+                    fontFamily: '"Noto Sans TC", "PingFang TC", "Microsoft JhengHei", "Noto Sans CJK TC", sans-serif', fontSize: 9, fill: '#62666d',
                     textAlign: 'left', textBaseline: 'middle',
                 },
                 name: 'role-text',
@@ -260,7 +260,7 @@ G6.registerNode('org-card', {
                 attrs: {
                     x: 14, y: 54 + i * DESC_LINE_H,
                     text: line,
-                    fontSize: 10, fill: '#8a8f98',
+                    fontFamily: '"Noto Sans TC", "PingFang TC", "Microsoft JhengHei", "Noto Sans CJK TC", sans-serif', fontSize: 10, fill: '#8a8f98',
                     textAlign: 'left', textBaseline: 'middle',
                 },
                 name: `desc-line-${i}`,
@@ -282,7 +282,7 @@ G6.registerNode('org-card', {
                 attrs: {
                     x: w / 2, y: btnY,
                     text: collapsed ? '+' : '\u2212',
-                    fontSize: 12, fontWeight: 'bold',
+                    fontFamily: '"Noto Sans TC", "PingFang TC", "Microsoft JhengHei", "Noto Sans CJK TC", sans-serif', fontSize: 12, fontWeight: 'bold',
                     fill: '#8a8f98',
                     textAlign: 'center', textBaseline: 'middle',
                     cursor: 'pointer',

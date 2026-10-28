@@ -587,7 +587,7 @@ class OfficeRenderer {
 
     // Measure text to size the board
     ctx.save();
-    ctx.font = 'bold 11px monospace';
+    ctx.font = 'bold 11px "Noto Sans TC", "PingFang TC", "Microsoft JhengHei", "Noto Sans CJK TC", sans-serif';
     const textW = ctx.measureText(label).width;
     const boardPadX = 8;
     const boardPadY = 5;
@@ -617,7 +617,7 @@ class OfficeRenderer {
 
     // Label text
     ctx.fillStyle = '#2a2018';
-    ctx.font = 'bold 11px monospace';
+    ctx.font = 'bold 11px "Noto Sans TC", "PingFang TC", "Microsoft JhengHei", "Noto Sans CJK TC", sans-serif';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     ctx.fillText(label, cx, boardY + boardH / 2 + 2);
@@ -682,7 +682,7 @@ class OfficeRenderer {
     }
 
     ctx.fillStyle = '#4a2e18';
-    ctx.font = 'bold 7px monospace';
+    ctx.font = 'bold 7px "Noto Sans TC", "PingFang TC", "Microsoft JhengHei", "Noto Sans CJK TC", sans-serif';
     ctx.textAlign = 'center';
     ctx.fillText('\u{1F4CB} Rules', bx + TILE * 1.5, by + TILE + 4);
     ctx.textAlign = 'left';
@@ -742,7 +742,7 @@ class OfficeRenderer {
     }
 
     ctx.fillStyle = '#0d2a1a';
-    ctx.font = 'bold 7px monospace';
+    ctx.font = 'bold 7px "Noto Sans TC", "PingFang TC", "Microsoft JhengHei", "Noto Sans CJK TC", sans-serif';
     ctx.textAlign = 'center';
     ctx.fillText('\u{1F4CA} Projects', bx + TILE * 1.5, by + TILE + 4);
     ctx.textAlign = 'left';
@@ -882,7 +882,7 @@ class OfficeRenderer {
       if (noteCount > 0) {
         this._rect(px + 24, py - 2, 8, 8, '#aa66ff');
         ctx.fillStyle = '#fff';
-        ctx.font = '7px monospace';
+        ctx.font = '7px "Noto Sans TC", "PingFang TC", "Microsoft JhengHei", "Noto Sans CJK TC", sans-serif';
         ctx.textAlign = 'center';
         ctx.fillText(String(noteCount), px + 28, py + 5);
         ctx.textAlign = 'left';
@@ -891,7 +891,7 @@ class OfficeRenderer {
       const noteCount = data.guidance_notes.length;
       this._rect(px + 24, py + 2, 8, 8, '#6633aa');
       ctx.fillStyle = '#fff';
-      ctx.font = '7px monospace';
+      ctx.font = '7px "Noto Sans TC", "PingFang TC", "Microsoft JhengHei", "Noto Sans CJK TC", sans-serif';
       ctx.textAlign = 'center';
       ctx.fillText(String(noteCount), px + 28, py + 9);
       ctx.textAlign = 'left';
@@ -915,11 +915,11 @@ class OfficeRenderer {
         const zAlpha = 0.4 + Math.sin(this.animFrame * 0.04 + hash) * 0.3;
         ctx.globalAlpha = zAlpha;
         ctx.fillStyle = '#8888aa';
-        ctx.font = '8px monospace';
+        ctx.font = '8px "Noto Sans TC", "PingFang TC", "Microsoft JhengHei", "Noto Sans CJK TC", sans-serif';
         ctx.fillText('z', iconX + 14, iconY + 2 - drift * 4);
-        ctx.font = '7px monospace';
+        ctx.font = '7px "Noto Sans TC", "PingFang TC", "Microsoft JhengHei", "Noto Sans CJK TC", sans-serif';
         ctx.fillText('z', iconX + 19, iconY - 2 - drift * 4);
-        ctx.font = '6px monospace';
+        ctx.font = '6px "Noto Sans TC", "PingFang TC", "Microsoft JhengHei", "Noto Sans CJK TC", sans-serif';
         ctx.fillText('z', iconX + 23, iconY - 5 - drift * 4);
         ctx.globalAlpha = 1;
       }
@@ -950,7 +950,7 @@ class OfficeRenderer {
     }
 
     // Name tag
-    ctx.font = '8px monospace';
+    ctx.font = '8px "Noto Sans TC", "PingFang TC", "Microsoft JhengHei", "Noto Sans CJK TC", sans-serif';
     const displayName = data.nickname || (data.name || data.role || '').substring(0, 8);
     const lvlTag = data.level ? ` L${data.level}` : '';
     const nameText = displayName + lvlTag;
@@ -999,7 +999,7 @@ class OfficeRenderer {
     }
 
     this.ctx.fillStyle = PALETTE.led1;
-    this.ctx.font = '7px monospace';
+    this.ctx.font = '7px "Noto Sans TC", "PingFang TC", "Microsoft JhengHei", "Noto Sans CJK TC", sans-serif';
     this.ctx.textAlign = 'center';
     const label = (toolData.name || 'TOOL').substring(0, 8).toUpperCase();
     this.ctx.fillText(label, px + 16, py + 36);
@@ -1089,7 +1089,7 @@ class OfficeRenderer {
 
     // Room label (auto-wrap)
     const fullLabel = roomData.name || 'Meeting';
-    ctx.font = '7px monospace';
+    ctx.font = '7px "Noto Sans TC", "PingFang TC", "Microsoft JhengHei", "Noto Sans CJK TC", sans-serif';
     const maxW = TILE * 2 + 4;
     const lines = [];
     let cur = '';
@@ -1119,7 +1119,7 @@ class OfficeRenderer {
     }
     if (roomData.is_booked) {
       ctx.fillStyle = PALETTE.meetingBooked;
-      ctx.font = '6px monospace';
+      ctx.font = '6px "Noto Sans TC", "PingFang TC", "Microsoft JhengHei", "Noto Sans CJK TC", sans-serif';
       ctx.fillText('IN USE', px + TILE, ly + 8 + lines.length * lineH);
     }
     ctx.textAlign = 'left';
@@ -1336,3 +1336,11 @@ class OfficeRenderer {
 
 // Initialize
 window.officeRenderer = new OfficeRenderer('office-canvas');
+
+// Canvas 文字用 Noto Sans TC：主動載入字體，載好後 render loop 下一幀就會用正確字體
+if (document.fonts && document.fonts.load) {
+  Promise.all([
+    document.fonts.load('400 12px "Noto Sans TC"', '辦公室Aa'),
+    document.fonts.load('700 12px "Noto Sans TC"', '辦公室Aa'),
+  ]).then(() => document.fonts.ready).catch(() => {});
+}
