@@ -1,0 +1,7 @@
+# 只用來在招募畫面顯示；實際權限由職位決定。web_search 每位員工都有。
+builtin_tools:
+  - read_file
+  - write_file
+  - list_dir
+  - bash
+custom_tools: []
