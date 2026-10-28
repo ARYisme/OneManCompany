@@ -1,0 +1,14 @@
+id: web_fetch
+name: Web Fetch
+description: >
+  Open one public web page (http/https) and return readable text/markdown.
+  Backend: crawl4ai (JS rendering, markdown) when a token is configured,
+  otherwise a standard-library fetcher. SSRF-guarded: private, loopback,
+  link-local and Tailscale targets are refused (checked after DNS and on
+  every redirect). GET only, ~20 s timeout, 2 MB cap, text/HTML/JSON/XML only.
+  ARY fork custom tool — see docs/ary/web-tools.md.
+added_by: ARY
+type: langchain_module
+sprite: desk_equipment
+source_talent: ary-market-researcher
+allowed_users: []

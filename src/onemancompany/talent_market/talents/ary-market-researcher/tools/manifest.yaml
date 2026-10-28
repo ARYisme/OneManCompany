@@ -1,7 +1,10 @@
 # 只用來在招募畫面顯示；實際權限由職位決定。web_search 每位員工都有。
+# web_fetch：人才自帶工具（tools/web_fetch/），onboarding 會裝到 assets/tools/ 並把新員工加進 allowed_users。
+# 說明見 docs/ary/web-tools.md
 builtin_tools:
   - read_file
   - write_file
   - list_dir
   - bash
-custom_tools: []
+custom_tools:
+  - web_fetch
