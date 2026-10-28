@@ -88,16 +88,30 @@ cd /workspace && python -c "from onemancompany.agents.onboarding import unregist
 `POST /api/admin/apply-code-update`（OMC 自己的 graceful restart，`os.execv`，約 5 秒，
 容器不重建、RestartCount 不變；若有任務在跑會延後到空閒時）。
 
-## 5. 啟用 crawl4ai（需要 ARY 決定）
+## 5. crawl4ai 已啟用（2026-10-28，token 檔方式）
 
-OMC 容器目前**沒有** `CRAWL4AI_API_TOKEN`，所以現在 `web_fetch` 走標準庫 fallback（不跑 JavaScript）。
-token 在 Harbor `harbor-infra/stacks/ai/crawl4ai/.env`（`CRAWL4AI_API_TOKEN`），**不要複製到 git**。兩種做法：
+2026-10-28 22:01–22:04 AEDT 經 ARY 同意，以 King ops 重建 OMC 容器啟用 crawl4ai。實際做法（Harbor
+`harbor-infra/stacks/ai/onemancompany/`，此目錄不是 git repo）：
 
-1. **不需 rebuild**：把 `CRAWL4AI_API_TOKEN=<token>` 加到 OMC data 的 `.env`
-   （`/workspace/.onemancompany/.env`，`main.py` 啟動時 `load_dotenv` 會讀），再 `apply-code-update`。
-   缺點：這份 `.env` 由 King 管的 stack 產生，之後 `ops up` 可能被覆蓋，要寫進 King 的設定才持久。
-2. **持久做法**：在 King 的 OMC stack（compose）加 `env_file` 或掛載唯讀 secret 檔並設
-   `CRAWL4AI_API_TOKEN_FILE=/run/secrets/crawl4ai_token`，再由 King ops 重建容器（會有短暫停機）。
+1. **token 檔**：`secrets/crawl4ai_api_token`（目錄 700、檔案 600、owner `ary`），內容只有 token 一行，
+   由 crawl4ai stack 的 `.env`（`CRAWL4AI_API_TOKEN`）用管線抽出，過程不顯示 token。
+   **token 不進 git、不進映像**：stack 目錄新增 `.gitignore`（`secrets/`），`.dockerignore` 也加了 `secrets/`。
+2. **compose.yaml**（`onemancompany` 服務）：
+   ```yaml
+   environment:
+     CRAWL4AI_BASE_URL: http://192.168.11.20:11235
+     CRAWL4AI_API_TOKEN_FILE: /run/secrets/crawl4ai_api_token
+   volumes:
+     - ./secrets/crawl4ai_api_token:/run/secrets/crawl4ai_api_token:ro
+   ```
+   同時 build arg `OMC_REF` 改為 `e12cd9c0da6351a4e08cb96f91068829e851c96b`（映像內含本工具的人才包）。
+3. **部署**：`APPROVE_OPS=1 /data/bin/ops -st harbor_onemancompany up --build`（不要直接 docker compose）。
+4. **OMC data `.env` 沒有放 token**，重建前後 hash 相同（entrypoint 只在檔案不存在時才產生）。
+
+`web_fetch` 讀 token 的順序：環境變數 `CRAWL4AI_API_TOKEN` → `CRAWL4AI_API_TOKEN_FILE` 指向的檔案。
+都沒有就走標準庫 fallback。crawl4ai 失敗（例如 HTTP 502）也會自動 fallback，並在 `note` 註明原因。
+
+換 token：用「原地覆寫」更新 `secrets/crawl4ai_api_token`（例如 `cat > 檔案`，保持 600；不要用會換掉檔案 inode 的編輯器，否則單檔 bind mount 仍指向舊檔），再 King ops `restart`，不必 rebuild。
 
 ## 6. 怎麼測試
 
@@ -106,25 +120,35 @@ token 在 Harbor `harbor-infra/stacks/ai/crawl4ai/.env`（`CRAWL4AI_API_TOKEN`�
 > 請用 web_fetch 打開 https://www.abs.gov.au/ ，用三點摘要並附來源網址與擷取時間。
 
 預期：回覆有內容、附 `https://www.abs.gov.au/` 與擷取時間；容器 log 會有
-`[web_fetch] url=https://www.abs.gov.au/ backend=stdlib status=200`。
+`[web_fetch] url=https://www.abs.gov.au/ backend=crawl4ai status=200`。
 
 SSRF 測試（應該都回 `status: blocked`）：`http://192.168.11.8:4000`、`http://127.0.0.1`、
 `http://192.168.11.20/`、`http://100.97.221.59/`、`http://aunode/`、`http://169.254.169.254/`。
 
 ## 7. 已知限制
 
-- **JavaScript 網站**：fallback 不跑 JS。Coles 商品頁實測回 HTTP 200 但內容是空的（JS 應用＋防爬挑戰）；
-  有 crawl4ai token 時才有機會讀到。
-- **防爬封鎖**：Woolworths 實測回 **HTTP 403 Access Denied**（Akamai 類防護）。crawl4ai 也不保證能過。
-  工具會回 `http_error`，並提醒員工**不可編造數字**，改用 `web_search` 摘要（附來源）或標示「無法取得」。
+2026-10-28 重建後實測（直接呼叫工具，容器內）：
+
+| 網址 | 後端 | 結果 |
+|---|---|---|
+| Coles 商品頁 `coles.com.au/product/coles-full-cream-milk-3l-8150288` | crawl4ai | ✅ 200，有標題、價格（$4.95、$1.65/1L） |
+| Coles 分類頁 `coles.com.au/browse/dairy-eggs-fridge/milk` | crawl4ai 502 → stdlib | ⚠️ 200 但內容空白 |
+| Woolworths 分類頁／商品頁 | crawl4ai 502 → stdlib | ❌ 403 Access Denied（crawl4ai 端是 `ERR_HTTP2_PROTOCOL_ERROR`，Akamai 防爬） |
+| ABS CPI 最新發布 | crawl4ai | ✅ 200 |
+
+- **防爬封鎖**：Woolworths 目前 crawl4ai 和 fallback 都讀不到；Coles 分類頁也讀不到。
+  工具會回 `http_error`／`empty`，並提醒員工**不可編造數字**，改用 `web_search` 摘要（附來源）或標示「無法取得」。
 - **robots.txt／網站條款**：工具不會自動讀 robots.txt。請只做少量、人工等級的查詢，
   不要大量爬取；Coles／Woolworths 的條款限制自動化存取，正式價格監控請改用授權資料或人工抽查。
 - **crawl4ai 內部行為**：交給 crawl4ai 的最終網址已驗證，但頁面裡的 JavaScript 由 crawl4ai 的瀏覽器執行，
   它能連到哪裡由 crawl4ai 容器的網路決定，不在本工具控制範圍。建議之後替 crawl4ai 容器加出站防火牆（擋 RFC1918／Tailscale）。
+- 員工本身不能直接打 crawl4ai：`http://192.168.11.20:11235` 對 `web_fetch` 一樣被擋（只允許 80/443）。
 - `fetched_at` 用容器時區（UTC）。
 - 不支援登入、表單、POST、付費牆內容。
 
 ## 8. 回滾
+
+只拿掉工具（不重建）：
 
 ```bash
 # 容器內（只動 data volume，不動其他員工）
@@ -132,6 +156,17 @@ rm -r /workspace/.onemancompany/company/assets/tools/web_fetch
 rm -r /workspace/.onemancompany/company/human_resource/employees/00006/tools
 # 然後 UI「套用程式更新」或 POST /api/admin/apply-code-update（OMC 自己 os.execv，約 5 秒）
 ```
+
+回到啟用 crawl4ai 之前的容器（Harbor stack 目錄）：
+
+```bash
+cp compose.yaml.bak-20261028-110107-webfetch compose.yaml
+cp .dockerignore.bak-20261028-110107-webfetch .dockerignore
+docker tag harbor-onemancompany:rollback-pre-webfetch-20261028 harbor-onemancompany:0.7.113-3fde188
+APPROVE_OPS=1 /data/bin/ops -st harbor_onemancompany up   # 不加 --build，否則會用舊 OMC_REF 重建
+```
+
+（備份檔名的時間是 Harbor 的 UTC，= 22:01 AEDT。）`secrets/` 可留著；不掛載就不會被讀到。
 
 程式碼回滾：`git revert <本次 commit>`（只影響人才資料夾與 docs，不影響後端）。
 
