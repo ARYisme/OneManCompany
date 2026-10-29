@@ -4,6 +4,18 @@
 
 ## 2026-10-29
 
+- 6 個本地人才包 v2 補強（ary-coder、ary-copywriter、ary-market-researcher、ary-secretary、ary-tw-stock、ary-vic-regulation）：
+  依社群做法（agency-agents、CrewAI、TradingAgents、MetaGPT、OMC 官方文件與 ACCC／ACMA／FSANZ 等官方來源）補強個性、協作對象、
+  共同規則（繁中、來源不編造、沒工具說做不到不謊報、不寫程式繞過、Email 只建草稿），每包新增 1 個 skill，所有 skill 補品質檢查清單。
+  非工程角色改 role 讓部門落在 General → **沒有 bash**；ary-coder 保留 bash（受 5998b66 bash_guard 限制）；web_fetch 給工程師、文案、
+  市場研究、台股、法規。台股加「不是投資建議、數據標時間」，法規加「官方來源＋法規版本日期」。模型不變。
+  詳見 [talent-packs-v2.md](talent-packs-v2.md)。只改人才包資料，沒有改程式。
+- 部署 4e2eddc：King ops `up --build`，映像 `harbor-onemancompany:0.7.113-4e2eddc`，停機約 16 秒（22:43:35–22:43:51 AEDT）。
+  回滾映像 `harbor-onemancompany:rollback-pre-talentv2-20261029T114103Z`（= `0.7.113-a1d8342`）；資料備份
+  `/workspace/.onemancompany/backups/omc-data-pre-talentv2-rebuild-20261029T114103Z.tgz`；compose／.env／.env.example 備份 `*.bak-20261029T114103Z-pre-talentv2`。
+- 已聘 00006 花满（市場研究員）同步到 v2：更新 persona、skills（加 trend-scan）、DESCRIPTION、tools/manifest、work_principles；
+  `tool_permissions` 由 `[bash, use_tool]` 改為 `[]`（沒有 bash），web_fetch 授權保留。編號、暱稱、部門、模型、guidance、對話與任務紀錄不動。
+  備份 `/workspace/.onemancompany/backups/employee-00006-pre-v2-20261029T113953Z/`。
 - 新增本地人才包「企劃」（`ary-product-planner`，模型 `foundry-gx10-main`）：產品與服務企劃、市場切入方案、
   專案規劃與時程、提案書／企劃書、成本效益評估 5 個 SOP skills，每個含交件格式與品質檢查清單；
   與市場研究員（00006）合作。role `Planner` → General 部門，**沒有 bash**；web_fetch 由 manifest 授權；
