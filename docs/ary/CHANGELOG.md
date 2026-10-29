@@ -2,6 +2,16 @@
 
 此 fork 以上游 1mancompany/OneManCompany `3fde188` 為基底（Apache-2.0）。以下為 ARY 的修改，時間為 AEDT。
 
+## 2026-10-29
+
+- 新增本地人才包「企劃」（`ary-product-planner`，模型 `foundry-gx10-main`）：產品與服務企劃、市場切入方案、
+  專案規劃與時程、提案書／企劃書、成本效益評估 5 個 SOP skills，每個含交件格式與品質檢查清單；
+  與市場研究員（00006）合作。role `Planner` → General 部門，**沒有 bash**；web_fetch 由 manifest 授權；
+  Email 只存草稿。參考 MetaGPT、agency-agents、CrewAI、ChatDev 與 OMC Talent Market 的 PM 做法，
+  詳見 [product-planner.md](product-planner.md)。只是資料（人才包），沒有改程式。
+- 5998b66 security(bash)：option D，擋 Gmail／secret 繞道、bash 降權為 nobody（Cursor）。
+- 5d7e3d2 fix(policy)：禁止謊報完成與繞過 Gmail 工具（EA 事件後，Cursor）。詳見 [incident-20261029-gmail-bypass.md](incident-20261029-gmail-bypass.md)。
+
 ## 2026-10-28
 
 - Gmail 只能寫草稿（uzena.nari@gmail.com）：刪除 `gmail_send`、`gmail_reply`；`gmail_create_draft` 支援回覆同串（threadId、In-Reply-To、References）、cc/bcc、UTF-8 中文、From 固定 uzena.nari，回傳繁中「請 ARY 自己審核寄出」提示；`_api_request` 拒絕任何 send 路徑。權限改 `gmail.readonly` + `gmail.compose`（不寄信的保證來自程式碼）。OAuth：client 憑證可由唯讀 secret 檔提供（`GOOGLE_OAUTH_CLIENT_FILE`），遠端授權改「貼回跳轉網址」（`POST /api/tools/{id}/oauth/exchange`，不開新 port）。**尚未部署**。詳見 [email-drafts-only.md](email-drafts-only.md)。

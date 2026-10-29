@@ -1,0 +1,11 @@
+# 只用來在招募畫面顯示；實際權限由職位決定（role: Planner → General → 預設沒有 bash）。
+# web_search 每位員工都有。web_fetch 已安裝在 company/assets/tools/，
+# onboarding 會依下面 custom_tools 把新員工加進 web_fetch 的 allowed_users。
+# gmail 工具是公司共用、只能寫草稿（見 docs/ary/email-drafts-only.md）。
+# 刻意不列 bash。說明見 docs/ary/product-planner.md
+builtin_tools:
+  - read_file
+  - write_file
+  - list_dir
+custom_tools:
+  - web_fetch
