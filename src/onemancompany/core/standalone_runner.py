@@ -214,6 +214,17 @@ def _make_tools(skills: dict) -> list:
     @tool
     def bash(command: str) -> str:
         """Run a shell command and return output."""
+        _blocked = (
+            ".oauth_cache", "gmail_tokens", "/run/secrets", "google_oauth_client",
+            "crawl4ai_api_token", "gmail.googleapis.com", "drafts/send", "messages/send",
+            "/gmail/v1/", "gmail_delete.py",
+        )
+        _low = (command or "").lower()
+        if any(b.lower() in _low for b in _blocked):
+            return (
+                "Blocked: bash may not touch OAuth/secret files or call Gmail APIs. "
+                "Use official Gmail tools for read/draft only."
+            )
         try:
             result = subprocess.run(
                 command, shell=True, capture_output=True, text=True, timeout=120,

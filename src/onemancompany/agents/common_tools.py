@@ -117,6 +117,18 @@ def _resolve_employee_path(file_path: str, employee_id: str = ""):
     return _resolve_path(file_path, permissions=permissions)
 
 
+def _deny_sensitive_path(path) -> dict | None:
+    """Block employee file tools from OAuth/secret locations."""
+    from onemancompany.core.bash_guard import is_sensitive_path
+
+    if is_sensitive_path(path):
+        return _tool_error(
+            f"Access denied (secret/OAuth path): {path}",
+            hint="Gmail credentials are not readable by employees. Use official Gmail tools only.",
+        )
+    return None
+
+
 
 
 @tool
@@ -139,6 +151,9 @@ def read(file_path: str, employee_id: str = "", offset: int = 0, limit: int = 0)
 
     if resolved is None:
         return _tool_error(f"Access denied: {file_path}", hint="Use ls() to browse or glob_files() to search.")
+    denied = _deny_sensitive_path(resolved) or _deny_sensitive_path(file_path)
+    if denied:
+        return denied
     if not resolved.exists():
         return _tool_error(f"File not found: {file_path}", hint="Use glob_files() to search or ls() to browse.")
     if not resolved.is_file():
@@ -201,12 +216,17 @@ def ls(dir_path: str = "", employee_id: str = "") -> dict:
 
     if resolved is None:
         return _tool_error(f"Access denied: {dir_path}", hint="Check the path with ls() on the parent directory.")
+    denied = _deny_sensitive_path(resolved) or _deny_sensitive_path(dir_path)
+    if denied:
+        return denied
     if not resolved.exists() or not resolved.is_dir():
         return _tool_error(f"Directory not found: {dir_path}", hint="Use ls() to check parent directory.")
     try:
         entries = []
         for item in sorted(resolved.iterdir()):
             if item.name.startswith("."):
+                continue
+            if item.name == ".oauth_cache" or "gmail_tokens" in item.name:
                 continue
             entries.append({
                 "name": item.name,
@@ -243,6 +263,9 @@ async def write(
 
     if resolved is None:
         return _tool_error(f"Access denied: {file_path}", hint="Use ls() to browse or glob_files() to search.")
+    denied = _deny_sensitive_path(resolved) or _deny_sensitive_path(file_path)
+    if denied:
+        return denied
 
     is_update = resolved.exists()
     original_content = ""
@@ -302,6 +325,9 @@ async def edit(
 
     if resolved is None:
         return _tool_error(f"Access denied: {file_path}", hint="Use ls() to browse or glob_files() to search.")
+    denied = _deny_sensitive_path(resolved) or _deny_sensitive_path(file_path)
+    if denied:
+        return denied
     if not resolved.exists():
         return _tool_error(f"File not found: {file_path}", hint="Use glob_files() to search or ls() to browse.")
 
@@ -352,6 +378,8 @@ async def bash(
     Prefer dedicated tools (read, ls, edit, grep, glob) over shell equivalents
     (cat, find, sed, awk) when possible.
 
+    Security: cannot read OAuth/secret files or call Gmail APIs (blocked + dropped privileges).
+
     Args:
         command: The shell command to execute.
         employee_id: Your employee ID.
@@ -359,9 +387,15 @@ async def bash(
         description: Brief human-readable description of what the command does.
     """
     import subprocess
+    from onemancompany.core.bash_guard import bash_subprocess_kwargs, check_bash_command
     from onemancompany.core.config import SOURCE_ROOT
 
+    blocked = check_bash_command(command)
+    if blocked:
+        return _tool_error(blocked)
+
     timeout_seconds = min(timeout_seconds, 600)
+    extra = bash_subprocess_kwargs()
 
     try:
         proc = await asyncio.get_event_loop().run_in_executor(
@@ -373,6 +407,7 @@ async def bash(
                 text=True,
                 timeout=timeout_seconds,
                 cwd=str(SOURCE_ROOT),
+                **extra,
             ),
         )
         return _limit_result({
@@ -403,6 +438,8 @@ def glob_files(pattern: str, path: str = "", employee_id: str = "") -> dict:
     """
     from pathlib import Path
 
+    from onemancompany.core.bash_guard import is_sensitive_path
+
     if path:
         resolved = _resolve_employee_path(path, employee_id)
     else:
@@ -411,9 +448,13 @@ def glob_files(pattern: str, path: str = "", employee_id: str = "") -> dict:
 
     if resolved is None or not resolved.is_dir():
         return {"status": "error", "message": f"Directory not found: {path}"}
+    denied = _deny_sensitive_path(resolved) or _deny_sensitive_path(path)
+    if denied:
+        return denied
 
     try:
         matches = sorted(resolved.glob(pattern), key=lambda p: p.stat().st_mtime, reverse=True)
+        matches = [m for m in matches if not is_sensitive_path(m)]
         MAX_RESULTS = 100
         truncated = len(matches) > MAX_RESULTS
         filenames = [str(m) for m in matches[:MAX_RESULTS]]
@@ -460,6 +501,9 @@ def grep_search(
 
     if resolved is None:
         return {"status": "error", "message": f"Access denied or invalid path: {path}"}
+    denied = _deny_sensitive_path(resolved) or _deny_sensitive_path(path)
+    if denied:
+        return denied
     if not resolved.exists():
         return {"status": "error", "message": f"Path not found: {path}"}
 

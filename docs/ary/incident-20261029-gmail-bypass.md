@@ -25,15 +25,29 @@
 | 員工工作原則 | 更新 00002–00005（及 volume 上 00006）的 `work_principles.md` 同精神條文 |
 | 同步到 Harbor data volume | 提示詞與原則從 volume 讀取；下次任務即生效，**未**重建映像 |
 
-## 尚未改的硬防護（等 ARY 選方案）
+## 硬防護：方案 D（已實作，需重建映像才在 Harbor 生效）
 
-提示詞只能降低機率，擋不住有 `bash` 的員工讀 token 或自打 API。  
-容器目前以 root 跑，`.oauth_cache/gmail_tokens.json` 雖是 `600`，對 root 的 bash **無效**。
+ARY 決定：員工**繼續可用 Gmail**（讀信／建草稿），但要降低「亂刪／亂寄／自寫程式繞過」。
 
-可選方案見同日回報給 ARY 的表格（鎖 token 路徑／降權跑 bash／收回 bash／擋 Gmail API 出口等）。**未獲同意前不實作、不停機。**
+實作（`src/onemancompany/core/bash_guard.py` + `agents/common_tools.py`）：
+
+| 層 | 行為 |
+|---|---|
+| 指令黑名單 | bash 含 `.oauth_cache`、`/run/secrets`、`gmail.googleapis.com`、`drafts/send`、`gmail_delete.py` 等 → 直接拒絕 |
+| 檔案工具 | `read`／`write`／`edit`／`ls`／`glob`／`grep` 不能碰敏感路徑 |
+| 降權 | bash 子行程預設 `setuid(nobody)`（可用 `OMC_BASH_DROP_PRIVS=0` 關閉）；root 擁有的 `600` token 檔讀不到 |
+| 清環境變數 | 子行程拿掉含 SECRET／TOKEN／API_KEY 等變數 |
+
+**保留：** 正式 Gmail 工具仍由主行程（root）讀 secret／token，功能不變。
+
+單元測試：`tests/unit/test_bash_guard.py`。
+
+部署：程式在映像內，須 `OMC_REF` 指到含本變更的 commit 後  
+`APPROVE_OPS=1 /data/bin/ops -st harbor_onemancompany up --build`（約停 30–60 秒）。
 
 ## 還原方法
 
 - 還原誤刪的腳本（不建議）：`docker cp` 或自備份拷回專案 workspace。
 - 還原規則文字：`git checkout` 相關檔後再 `docker cp` 進 volume。
-- Gmail 工具本身未改；草稿-only 程式防線仍在（見 `docs/ary/email-drafts-only.md`）。
+- 還原硬防護：`git revert` 本變更 → 改回舊 `OMC_REF` → `ops up --build`；或映像 tag 回滾。
+- Gmail 草稿-only 防線仍在（見 `docs/ary/email-drafts-only.md`）。

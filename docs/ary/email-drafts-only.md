@@ -48,7 +48,8 @@ grep -rnE "gmail_send|gmail_reply" src company frontend      # 應該沒有結�
 > 限制：員工如果有 shell／檔案工具，理論上能讀到容器裡的 token 快取自己打 API。這跟
 > crawl4ai token 的風險同一級；真正的最後一道防線是「Google 帳號權限隨時可撤銷」（第 6 節）。
 > 2026-10-29：EA 曾謊報刪草稿並自寫 `gmail_delete.py`（未跑成）。已刪檔並強化提示詞／工作原則；
-> 硬隔離（bash／token）方案見 `docs/ary/incident-20261029-gmail-bypass.md`，等 ARY 選定後再改。
+> 硬隔離採方案 D（bash 黑名單＋降權 nobody＋檔案工具擋 secret）見
+> `docs/ary/incident-20261029-gmail-bypass.md`（須重建映像才在 Harbor 生效）。
 
 ## 3. 誰可以用
 
