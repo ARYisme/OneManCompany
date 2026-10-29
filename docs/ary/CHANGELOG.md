@@ -9,6 +9,15 @@
   與市場研究員（00006）合作。role `Planner` → General 部門，**沒有 bash**；web_fetch 由 manifest 授權；
   Email 只存草稿。參考 MetaGPT、agency-agents、CrewAI、ChatDev 與 OMC Talent Market 的 PM 做法，
   詳見 [product-planner.md](product-planner.md)。只是資料（人才包），沒有改程式。
+- 部署（Harbor，22:18–22:21 AEDT，King ops `up --build`）：OMC 映像改用 `a1d8342`，映像標籤改成
+  `harbor-onemancompany:0.7.113-a1d8342`（`0.7.113` 是上游版本，後面是實際 fork commit；之前的 `0.7.113-3fde188`
+  其實跑的是 5998b66）。實際停機約 20 秒（22:20:39 舊容器停止 → 22:20:59 新容器 healthy）。
+  備份：容器內 `/workspace/.onemancompany/backups/omc-data-pre-planner-rebuild-20261029T111735Z.tgz`；
+  Harbor stack 目錄 `compose.yaml`／`.env`／`.env.example` 的 `.bak-20261029T111735Z-pre-planner`；
+  回滾映像標籤 `harbor-onemancompany:rollback-pre-planner-20261029T111735Z`（＝ 5998b66 的映像）。
+- EA（00004）模型改為 `foundry-gx10-main`（資料變更，不在 git）：避免 `foundry-gx10-fast` 的
+  「Image tokens exceed context capacity」400 且 fast 沒有 fallback。備份
+  `backups/20261029-2208-ary/employees/00004/profile.yaml`。
 - 5998b66 security(bash)：option D，擋 Gmail／secret 繞道、bash 降權為 nobody（Cursor）。
 - 5d7e3d2 fix(policy)：禁止謊報完成與繞過 Gmail 工具（EA 事件後，Cursor）。詳見 [incident-20261029-gmail-bypass.md](incident-20261029-gmail-bypass.md)。
 
