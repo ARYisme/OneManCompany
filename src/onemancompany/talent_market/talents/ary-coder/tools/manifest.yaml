@@ -1,7 +1,11 @@
-# 只用來在招募畫面顯示；實際權限由職位決定。web_search 每位員工都有。
+# 只用來在招募畫面顯示；實際權限由職位決定（見 profile.yaml 的 role 註解）。web_search 每位員工都有。
+# web_fetch 已安裝在 company/assets/tools/，onboarding 會依 custom_tools 把新員工加進 allowed_users。
+# gmail 是公司共用工具，只能讀信與建草稿（見 docs/ary/email-drafts-only.md）。
+# bash 受 5998b66 bash_guard 限制：以 nobody 執行、擋 Gmail API／OAuth／secret。
 builtin_tools:
   - read_file
   - write_file
   - list_dir
   - bash
-custom_tools: []
+custom_tools:
+  - web_fetch

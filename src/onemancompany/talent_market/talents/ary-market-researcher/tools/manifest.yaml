@@ -1,10 +1,10 @@
-# 只用來在招募畫面顯示；實際權限由職位決定。web_search 每位員工都有。
-# web_fetch：人才自帶工具（tools/web_fetch/），onboarding 會裝到 assets/tools/ 並把新員工加進 allowed_users。
-# 說明見 docs/ary/web-tools.md
+# 只用來在招募畫面顯示；實際權限由職位決定（見 profile.yaml 的 role 註解）。web_search 每位員工都有。
+# web_fetch 由本人才包 tools/web_fetch/ 提供（已安裝時不覆蓋）；已安裝在 company/assets/tools/，onboarding 會依 custom_tools 把新員工加進 allowed_users。
+# gmail 是公司共用工具，只能讀信與建草稿（見 docs/ary/email-drafts-only.md）。
+# 刻意不列 bash。
 builtin_tools:
   - read_file
   - write_file
   - list_dir
-  - bash
 custom_tools:
   - web_fetch
