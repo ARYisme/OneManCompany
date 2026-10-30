@@ -242,17 +242,23 @@
     </div>
   </div>
 
-  <!-- Employee Detail Modal -->
+  <!-- Employee Detail Modal (tabs: 概覽 / 任務 / 紀錄 / 調教) -->
   <div id="employee-modal" class="modal-overlay hidden">
     <div class="modal-content employee-modal-content">
       <div class="modal-header">
         <h3 class="pixel-title" id="emp-modal-title">Employee Details</h3>
         <button id="employee-close-btn" class="modal-close">&#10005;</button>
       </div>
+      <div class="emp-detail-tabs" role="tablist" aria-label="職員詳情分頁">
+        <button type="button" class="emp-tab-btn active" data-emp-tab="overview" role="tab" aria-selected="true">概覽</button>
+        <button type="button" class="emp-tab-btn" data-emp-tab="tasks" role="tab" aria-selected="false">任務</button>
+        <button type="button" class="emp-tab-btn" data-emp-tab="records" role="tab" aria-selected="false">紀錄</button>
+        <button type="button" class="emp-tab-btn" data-emp-tab="coaching" role="tab" aria-selected="false">調教</button>
+      </div>
       <div class="modal-body employee-modal-body">
-        <div class="emp-detail-grid">
-          <!-- Left: Status (compact) + Work Principles + 1-on-1 Notes -->
-          <div class="emp-detail-col emp-detail-left">
+        <!-- 概覽 -->
+        <div class="emp-tab-panel active" data-emp-panel="overview" role="tabpanel">
+          <div class="emp-overview-layout">
             <div class="employee-avatar-section" id="emp-detail-avatar-section">
               <img id="emp-detail-avatar" class="employee-avatar" alt="AI employee avatar" />
               <label class="avatar-upload-btn">
@@ -309,64 +315,73 @@
               <div id="emp-settings-container" class="emp-detail-section emp-model-section-wrap">
                 <!-- Dynamically rendered from manifest.json settings -->
               </div>
-              <button id="emp-oneonone-btn" class="pixel-btn emp-fire-btn">&#127891; Start 1-on-1</button>
+              <div class="emp-detail-section emp-tool-perm-section">
+                <div class="emp-detail-section-title">工具權限（唯讀）</div>
+                <div id="emp-detail-tool-perms" class="emp-tool-perm-tags">
+                  <span class="empty-hint">載入中…</span>
+                </div>
+                <button type="button" id="emp-open-perm-center-btn" class="pixel-btn secondary emp-perm-link-btn">
+                  到權限中心管理
+                </button>
+              </div>
               <button id="emp-fire-btn" class="pixel-btn danger emp-fire-btn" style="display:none;">
                 &#128308; Dismiss Employee
               </button>
             </div>
+          </div>
+        </div>
 
-            <div class="emp-detail-section emp-detail-flex-section">
-              <div class="emp-detail-section-title">Work Principles</div>
-              <div class="emp-detail-section-content" id="emp-detail-principles"></div>
-            </div>
-
-            <div class="emp-detail-section emp-detail-flex-section">
-              <div class="emp-detail-section-title">1-on-1 Notes</div>
-              <div class="emp-detail-section-content" id="emp-detail-guidance"></div>
-            </div>
-
-            <div class="emp-detail-section emp-detail-flex-section" id="emp-detail-cron-section">
-              <div class="emp-detail-section-title" style="display:flex;align-items:center;justify-content:space-between;">
-                <span>Scheduled Jobs</span>
-                <button class="emp-cron-stop-all-btn" id="emp-cron-stop-all-btn" style="display:none;">Stop All</button>
-              </div>
-              <div class="emp-detail-section-content" id="emp-detail-crons">
-                <span class="empty-hint">No scheduled jobs</span>
-              </div>
-            </div>
-
-            <div class="emp-section" id="emp-detail-projects-section">
-              <div class="emp-section-title">Project History</div>
-              <div id="emp-detail-projects" class="emp-detail-projects">
-                <span class="empty-hint">Loading...</span>
-              </div>
+        <!-- 任務 -->
+        <div class="emp-tab-panel" data-emp-panel="tasks" role="tabpanel" hidden>
+          <div class="emp-detail-section emp-detail-fill-section">
+            <div class="emp-detail-section-title">Task Board</div>
+            <div class="emp-detail-section-content" id="emp-detail-taskboard">
+              <span class="empty-hint">No tasks</span>
             </div>
           </div>
-
-          <!-- Center: Task Board -->
-          <div class="emp-detail-col emp-detail-center">
-            <div class="emp-detail-section emp-detail-fill-section">
-              <div class="emp-detail-section-title">Task Board</div>
-              <div class="emp-detail-section-content" id="emp-detail-taskboard">
-                <span class="empty-hint">No tasks</span>
-              </div>
+          <div class="emp-detail-section emp-detail-flex-section" id="emp-detail-cron-section">
+            <div class="emp-detail-section-title" style="display:flex;align-items:center;justify-content:space-between;">
+              <span>Scheduled Jobs</span>
+              <button class="emp-cron-stop-all-btn" id="emp-cron-stop-all-btn" style="display:none;">Stop All</button>
+            </div>
+            <div class="emp-detail-section-content" id="emp-detail-crons">
+              <span class="empty-hint">No scheduled jobs</span>
             </div>
           </div>
+        </div>
 
-          <!-- Right: Execution Log + Work History -->
-          <div class="emp-detail-col emp-detail-right">
-            <div class="emp-detail-section emp-detail-fill-section">
-              <div class="emp-detail-section-title">Execution Log</div>
-              <div class="emp-detail-section-content emp-log-viewer" id="emp-detail-logs">
-                <span class="empty-hint">No logs</span>
-              </div>
+        <!-- 紀錄 -->
+        <div class="emp-tab-panel" data-emp-panel="records" role="tabpanel" hidden>
+          <div class="emp-detail-section emp-detail-fill-section">
+            <div class="emp-detail-section-title">Execution Log</div>
+            <div class="emp-detail-section-content emp-log-viewer" id="emp-detail-logs">
+              <span class="empty-hint">No logs</span>
             </div>
-            <div class="emp-detail-section" style="max-height:150px;overflow-y:auto;margin-top:4px">
-              <div class="emp-detail-section-title">Work History</div>
-              <div class="emp-detail-section-content" id="emp-detail-progress">
-                <span class="empty-hint">No work history</span>
-              </div>
+          </div>
+          <div class="emp-detail-section" style="max-height:180px;overflow-y:auto;margin-top:8px">
+            <div class="emp-detail-section-title">Work History</div>
+            <div class="emp-detail-section-content" id="emp-detail-progress">
+              <span class="empty-hint">No work history</span>
             </div>
+          </div>
+          <div class="emp-section" id="emp-detail-projects-section" style="margin-top:8px">
+            <div class="emp-section-title">Project History</div>
+            <div id="emp-detail-projects" class="emp-detail-projects">
+              <span class="empty-hint">Loading...</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- 調教（1-on-1 + 紀錄／原則） -->
+        <div class="emp-tab-panel" data-emp-panel="coaching" role="tabpanel" hidden>
+          <button id="emp-oneonone-btn" class="pixel-btn emp-fire-btn">&#127891; Start 1-on-1</button>
+          <div class="emp-detail-section emp-detail-flex-section">
+            <div class="emp-detail-section-title">Work Principles</div>
+            <div class="emp-detail-section-content" id="emp-detail-principles"></div>
+          </div>
+          <div class="emp-detail-section emp-detail-flex-section">
+            <div class="emp-detail-section-title">1-on-1 Notes</div>
+            <div class="emp-detail-section-content" id="emp-detail-guidance"></div>
           </div>
         </div>
       </div>

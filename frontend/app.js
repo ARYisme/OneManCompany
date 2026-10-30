@@ -1006,6 +1006,12 @@ class AppController {
       e.target.value = '';
     });
     document.getElementById('employee-close-btn').addEventListener('click', () => this.closeEmployeeDetail());
+    document.querySelectorAll('.emp-tab-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const tab = btn.getAttribute('data-emp-tab');
+        if (tab) this._switchEmployeeTab(tab);
+      });
+    });
     document.getElementById('employee-modal').addEventListener('click', (e) => {
       if (e.target.id === 'employee-modal') this.closeEmployeeDetail();
     });
@@ -1612,10 +1618,47 @@ class AppController {
   }
 
   // ===== Employee Detail Modal =====
+  _switchEmployeeTab(tabName) {
+    document.querySelectorAll('.emp-tab-btn').forEach(btn => {
+      const on = btn.getAttribute('data-emp-tab') === tabName;
+      btn.classList.toggle('active', on);
+      btn.setAttribute('aria-selected', on ? 'true' : 'false');
+    });
+    document.querySelectorAll('.emp-tab-panel').forEach(panel => {
+      const on = panel.getAttribute('data-emp-panel') === tabName;
+      panel.classList.toggle('active', on);
+      if (on) panel.removeAttribute('hidden');
+      else panel.setAttribute('hidden', '');
+    });
+  }
+
+  async _loadEmployeeToolPermTags(employeeId) {
+    const el = document.getElementById('emp-detail-tool-perms');
+    if (!el) return;
+    el.innerHTML = '<span class="empty-hint">載入中…</span>';
+    try {
+      const detail = await fetch(`/api/employee/${encodeURIComponent(employeeId)}`).then(r => r.json());
+      const effective = detail.effective_tool_permissions || [];
+      const hasEx = !!detail.has_permission_exception;
+      if (!effective.length) {
+        el.innerHTML = `<span class="perm-tag perm-none">無 gated 工具</span>` +
+          `<span class="emp-perm-source">${hasEx ? '（員工例外）' : '（部門預設）'}</span>`;
+      } else {
+        el.innerHTML = effective.map(t =>
+          `<span class="perm-tag perm-tool">${this._escapeHtml(t)}</span>`
+        ).join(' ') +
+          `<span class="emp-perm-source">${hasEx ? '（員工例外）' : '（部門預設）'}</span>`;
+      }
+    } catch (e) {
+      el.innerHTML = '<span class="empty-hint">無法載入工具權限</span>';
+    }
+  }
+
   openEmployeeDetail(emp) {
     const modal = document.getElementById('employee-modal');
 
     this.viewingEmployeeId = emp.id;
+    this._switchEmployeeTab('overview');
 
     // Avatar
     const avatarImg = document.getElementById('emp-detail-avatar');
@@ -1635,13 +1678,22 @@ class AppController {
     document.getElementById('emp-detail-skills').textContent =
       (emp.skills || []).join(', ') || '-';
 
-    // Permissions — render as tags
+    // Permissions — render as tags (role/capability tags; tool perms are separate & read-only)
     const permsEl = document.getElementById('emp-detail-permissions');
     const perms = emp.permissions || [];
     if (perms.length) {
       permsEl.innerHTML = perms.map(p => `<span class="perm-tag perm-${p}">${p}</span>`).join(' ');
     } else {
       permsEl.textContent = '-';
+    }
+
+    this._loadEmployeeToolPermTags(emp.id);
+    const permLinkBtn = document.getElementById('emp-open-perm-center-btn');
+    if (permLinkBtn) {
+      permLinkBtn.onclick = () => {
+        this.closeEmployeeDetail();
+        this.openPermissionCenter(emp.id);
+      };
     }
 
     // Salary

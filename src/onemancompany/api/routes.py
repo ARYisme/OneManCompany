@@ -1464,6 +1464,21 @@ async def get_employee_detail(employee_id: str) -> dict:
     else:
         result["oauth_logged_in"] = bool(cfg.api_key) if cfg and cfg.auth_method == AuthMethod.OAUTH else False
     result["tool_permissions"] = list(cfg.tool_permissions) if cfg and cfg.tool_permissions else []
+    try:
+        from onemancompany.core.permissions import (
+            effective_gated_grants,
+            has_employee_exception,
+        )
+        from onemancompany.core.store import load_employee as _load_emp_perm
+
+        _perm_emp = _load_emp_perm(employee_id) or {}
+        result["effective_tool_permissions"] = sorted(effective_gated_grants(_perm_emp))
+        result["has_permission_exception"] = has_employee_exception(_perm_emp)
+        if has_employee_exception(_perm_emp):
+            result["tool_permissions"] = list(_perm_emp.get("tool_permissions") or [])
+    except Exception:
+        result.setdefault("effective_tool_permissions", [])
+        result.setdefault("has_permission_exception", False)
 
     # Include manifest if available
     manifest = load_manifest(employee_id)

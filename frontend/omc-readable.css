@@ -225,3 +225,49 @@ body { line-height: 1.5; }
 .perm-audit-list { max-height: 160px; overflow-y: auto; font-size: 11px; color: #aaa; }
 .perm-audit-row { padding: 3px 0; border-bottom: 1px solid #222; }
 .perm-audit-when { color: #666; margin-right: 6px; }
+
+/* Employee detail tabs */
+.emp-detail-tabs {
+  display: flex;
+  gap: 4px;
+  padding: 6px 10px 0;
+  border-bottom: 1px solid #2a2a2a;
+  background: #0c0c0c;
+}
+.emp-tab-btn {
+  appearance: none;
+  background: transparent;
+  border: 1px solid transparent;
+  border-bottom: none;
+  color: #888;
+  font-size: 12px;
+  padding: 6px 12px;
+  cursor: pointer;
+  border-radius: 4px 4px 0 0;
+}
+.emp-tab-btn:hover { color: #ccc; background: #161616; }
+.emp-tab-btn.active {
+  color: #eee;
+  background: #1a1a1a;
+  border-color: #333;
+}
+.emp-tab-panel { display: none; flex-direction: column; gap: 10px; min-height: 0; flex: 1; }
+.emp-tab-panel.active { display: flex; }
+.employee-modal-body { display: flex; flex-direction: column; }
+.emp-overview-layout {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 12px;
+  align-items: start;
+}
+.emp-tool-perm-section { margin-top: 10px; }
+.emp-tool-perm-tags { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; margin-bottom: 8px; }
+.perm-tag.perm-tool { background: #1e2a1e; color: #9d9; border: 1px solid #345; padding: 2px 6px; font-size: 10px; }
+.perm-tag.perm-none { background: #222; color: #888; border: 1px solid #333; padding: 2px 6px; font-size: 10px; }
+.emp-perm-source { font-size: 10px; color: #777; margin-left: 4px; }
+.emp-perm-link-btn { margin-top: 4px; }
+
+@media (max-width: 720px) {
+  .emp-overview-layout { grid-template-columns: 1fr; }
+  .emp-detail-tabs { overflow-x: auto; }
+}
