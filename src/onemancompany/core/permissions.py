@@ -68,37 +68,116 @@ GATED_TOOL_NAMES: list[str] = [
 ]
 
 
+def _code_default_grants(dept: str) -> set[str]:
+    return set(DEFAULT_TOOL_PERMISSIONS.get(dept, DEFAULT_TOOL_PERMISSIONS_FALLBACK))
+
+
 def _default_departments() -> dict[str, list[str]]:
+    """Resolved allow-lists (code defaults) — used when no YAML overrides exist."""
+    return {dept: sorted(_code_default_grants(dept)) for dept in MATRIX_DEPARTMENTS}
+
+
+def _load_permissions_yaml() -> dict:
+    path = PERMISSIONS_PATH
+    if not path.exists():
+        return {}
+    try:
+        return yaml.safe_load(read_text_utf(path)) or {}
+    except Exception as exc:
+        logger.warning("Failed to read {}: {}", path, exc)
+        return {}
+
+
+def permissions_file_version() -> int:
+    raw = _load_permissions_yaml()
+    try:
+        return int(raw.get("version") or 1)
+    except (TypeError, ValueError):
+        return 1
+
+
+def load_department_raw_tokens() -> dict[str, list[str]]:
+    """Raw department tokens from YAML (may include ``!tool``). Missing file → {}."""
+    raw = _load_permissions_yaml()
+    depts = raw.get("departments") or {}
     out: dict[str, list[str]] = {}
-    for dept in MATRIX_DEPARTMENTS:
-        out[dept] = list(
-            DEFAULT_TOOL_PERMISSIONS.get(dept, DEFAULT_TOOL_PERMISSIONS_FALLBACK)
-        )
+    for name, tools in depts.items():
+        if isinstance(tools, list):
+            out[str(name)] = [str(t).strip() for t in tools if str(t).strip()]
+        elif tools is None:
+            out[str(name)] = []
     return out
 
 
-def load_department_defaults() -> dict[str, list[str]]:
-    """Return department → granted gated tool names (no deny prefixes).
+def split_permission_tokens(tokens: list[str] | None) -> tuple[set[str], set[str]]:
+    """Split raw tokens into (grants, denies)."""
+    grants: set[str] = set()
+    denies: set[str] = set()
+    for raw in tokens or []:
+        t = str(raw).strip()
+        if not t:
+            continue
+        if t.startswith("!") or t.startswith("-"):
+            denies.add(t[1:])
+        else:
+            grants.add(t)
+    return grants, denies
 
-    Missing file → code defaults (does not create the file on read).
+
+def token_state(tokens: list[str] | None, tool_name: str, *, empty_is_deny: bool = False) -> str:
+    """Return ``allow`` | ``deny`` | ``inherit`` for one tool against a token list.
+
+    ``tokens is None`` → inherit (no override row).
+    ``tokens == []`` with empty_is_deny → deny (legacy employee empty exception).
+    ``tokens == []`` without empty_is_deny → inherit (dept row means all inherit).
     """
-    path = PERMISSIONS_PATH
-    if not path.exists():
-        return _default_departments()
-    try:
-        raw = yaml.safe_load(read_text_utf(path)) or {}
-    except Exception as exc:
-        logger.warning("Failed to read {}: {}", path, exc)
-        return _default_departments()
+    if tokens is None:
+        return "inherit"
+    if tokens == []:
+        return "deny" if empty_is_deny else "inherit"
+    grants, denies = split_permission_tokens(tokens)
+    if tool_name in denies:
+        return "deny"
+    if tool_name in grants:
+        return "allow"
+    return "inherit"
 
-    depts = raw.get("departments") or {}
-    merged = _default_departments()
-    for name, tools in depts.items():
-        if isinstance(tools, list):
-            merged[str(name)] = [str(t) for t in tools if t and not str(t).startswith(("!", "-"))]
-        elif tools is None:
-            merged[str(name)] = []
-    return merged
+
+def department_tool_state(dept: str, tool_name: str) -> str:
+    """v2+: omit = inherit. v1 legacy files: omit = deny (old checkbox matrix)."""
+    raw_map = load_department_raw_tokens()
+    if not PERMISSIONS_PATH.exists():
+        return "inherit"
+    if dept not in raw_map:
+        return "inherit"
+    state = token_state(raw_map[dept], tool_name, empty_is_deny=False)
+    if state != "inherit":
+        return state
+    # Legacy v1: unlisted tool meant "not granted"
+    if permissions_file_version() < 2:
+        return "deny"
+    return "inherit"
+
+
+def department_allows(dept: str, tool_name: str) -> bool:
+    state = department_tool_state(dept, tool_name)
+    if state == "deny":
+        return False
+    if state == "allow":
+        return True
+    return tool_name in _code_default_grants(dept)
+
+
+def load_department_defaults() -> dict[str, list[str]]:
+    """Return department → *effective* granted gated tool names (resolved)."""
+    out: dict[str, list[str]] = {}
+    for dept in MATRIX_DEPARTMENTS:
+        out[dept] = sorted(t for t in GATED_TOOL_NAMES if department_allows(dept, t))
+    # Include any extra depts from YAML
+    for dept in load_department_raw_tokens():
+        if dept not in out:
+            out[dept] = sorted(t for t in GATED_TOOL_NAMES if department_allows(dept, t))
+    return out
 
 
 def save_department_defaults(
@@ -106,24 +185,29 @@ def save_department_defaults(
     *,
     actor_id: str = "ceo",
 ) -> dict[str, list[str]]:
-    """Replace department defaults and append an audit record. Returns saved map."""
+    """Save raw department tokens (``tool`` / ``!tool``; omit = inherit). Returns raw map."""
     cleaned: dict[str, list[str]] = {}
     for name, tools in departments.items():
-        cleaned[str(name)] = [
-            str(t) for t in (tools or [])
-            if t and not str(t).startswith(("!", "-"))
-        ]
+        toks: list[str] = []
+        seen: set[str] = set()
+        for t in tools or []:
+            s = str(t).strip()
+            if not s:
+                continue
+            key = s[1:] if s.startswith(("!", "-")) else s
+            if key in seen:
+                continue
+            seen.add(key)
+            toks.append(s)
+        cleaned[str(name)] = toks
 
-    # Keep known departments; allow extra keys for custom depts
     for dept in MATRIX_DEPARTMENTS:
-        cleaned.setdefault(dept, list(
-            DEFAULT_TOOL_PERMISSIONS.get(dept, DEFAULT_TOOL_PERMISSIONS_FALLBACK)
-        ))
+        cleaned.setdefault(dept, [])
 
-    prev = load_department_defaults()
+    prev = load_department_raw_tokens()
     PERMISSIONS_PATH.parent.mkdir(parents=True, exist_ok=True)
     payload = {
-        "version": 1,
+        "version": 2,  # omit = inherit; ``!tool`` = deny; ``tool`` = allow
         "updated_at": datetime.now(timezone.utc).isoformat(),
         "updated_by": actor_id,
         "departments": cleaned,
@@ -143,51 +227,35 @@ def save_department_defaults(
     return cleaned
 
 
-def split_permission_tokens(tokens: list[str] | None) -> tuple[set[str], set[str]]:
-    """Split raw tokens into (grants, denies)."""
-    grants: set[str] = set()
-    denies: set[str] = set()
-    for raw in tokens or []:
-        t = str(raw).strip()
-        if not t:
-            continue
-        if t.startswith("!") or t.startswith("-"):
-            denies.add(t[1:])
-        else:
-            grants.add(t)
-    return grants, denies
-
-
 def has_employee_exception(emp_data: dict) -> bool:
     """True when profile explicitly sets tool_permissions (including empty list)."""
     return PF_TOOL_PERMISSIONS in emp_data
 
 
-def effective_gated_grants(emp_data: dict) -> set[str]:
-    """Resolve effective gated tool names for an employee (deny-first)."""
-    dept = str(emp_data.get(PF_DEPARTMENT) or "General")
-    dept_defaults = set(load_department_defaults().get(dept, DEFAULT_TOOL_PERMISSIONS_FALLBACK))
-
-    if has_employee_exception(emp_data):
-        grants, denies = split_permission_tokens(emp_data.get(PF_TOOL_PERMISSIONS) or [])
-        # Employee exception replaces department defaults for grants
-        return grants - denies
-
-    return dept_defaults
+def employee_tool_state(emp_data: dict, tool_name: str) -> str:
+    if not has_employee_exception(emp_data):
+        return "inherit"
+    tokens = emp_data.get(PF_TOOL_PERMISSIONS)
+    if tokens is None:
+        return "inherit"
+    return token_state(list(tokens), tool_name, empty_is_deny=True)
 
 
 def is_gated_tool_allowed(emp_data: dict, tool_name: str) -> bool:
-    grants, denies = split_permission_tokens(
-        emp_data.get(PF_TOOL_PERMISSIONS) if has_employee_exception(emp_data) else None
-    )
-    if tool_name in denies:
-        return False
-    if has_employee_exception(emp_data):
-        return tool_name in grants
     dept = str(emp_data.get(PF_DEPARTMENT) or "General")
-    return tool_name in set(
-        load_department_defaults().get(dept, DEFAULT_TOOL_PERMISSIONS_FALLBACK)
-    )
+    dept_ok = department_allows(dept, tool_name)
+
+    state = employee_tool_state(emp_data, tool_name)
+    if state == "deny":
+        return False
+    if state == "allow":
+        return True
+    return dept_ok
+
+
+def effective_gated_grants(emp_data: dict) -> set[str]:
+    """Resolve effective gated tool names for an employee (deny-first)."""
+    return {t for t in GATED_TOOL_NAMES if is_gated_tool_allowed(emp_data, t)}
 
 
 async def set_employee_permissions(
@@ -341,11 +409,23 @@ def build_permissions_snapshot() -> dict:
     """Payload for GET /api/permissions — matrix + employee exceptions + recent audit."""
     from onemancompany.core.store import load_all_employees, load_activity_log
 
-    departments = load_department_defaults()
+    raw = load_department_raw_tokens()
+    dept_states: dict[str, dict[str, str]] = {}
+    for dept in MATRIX_DEPARTMENTS:
+        dept_states[dept] = {
+            t: department_tool_state(dept, t) for t in GATED_TOOL_NAMES
+        }
+    for dept in raw:
+        if dept not in dept_states:
+            dept_states[dept] = {
+                t: department_tool_state(dept, t) for t in GATED_TOOL_NAMES
+            }
+
     employees_out = []
     for eid, emp in sorted(load_all_employees().items()):
         exception = has_employee_exception(emp)
         tokens = list(emp.get(PF_TOOL_PERMISSIONS) or []) if exception else []
+        tool_states = {t: employee_tool_state(emp, t) for t in GATED_TOOL_NAMES}
         employees_out.append({
             "id": eid,
             "name": emp.get(PF_NAME) or eid,
@@ -354,6 +434,7 @@ def build_permissions_snapshot() -> dict:
             "department": emp.get(PF_DEPARTMENT) or "General",
             "has_exception": exception,
             "tool_permissions": tokens,
+            "tool_states": tool_states,
             "effective": sorted(effective_gated_grants(emp)),
         })
 
@@ -364,7 +445,9 @@ def build_permissions_snapshot() -> dict:
 
     return {
         "gated_tools": list(GATED_TOOL_NAMES),
-        "departments": departments,
+        "departments": load_department_defaults(),
+        "department_tokens": raw,
+        "department_states": dept_states,
         "department_order": MATRIX_DEPARTMENTS,
         "employees": employees_out,
         "audit": audit,

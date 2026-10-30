@@ -1029,6 +1029,7 @@ class AppController {
     // Operations dashboard modal bindings
     document.getElementById('dashboard-toolbar-btn').addEventListener('click', () => this.openDashboard());
     document.getElementById('permissions-toolbar-btn')?.addEventListener('click', () => this.openPermissionCenter());
+    document.getElementById('sidebar-permissions-btn')?.addEventListener('click', () => this.openPermissionCenter());
     document.getElementById('permissions-close-btn')?.addEventListener('click', () => this.closePermissionCenter());
     document.getElementById('permissions-modal')?.addEventListener('click', (e) => {
       if (e.target.id === 'permissions-modal') this.closePermissionCenter();
@@ -1037,6 +1038,14 @@ class AppController {
     document.getElementById('perm-emp-save-btn')?.addEventListener('click', () => this._savePermissionEmployee());
     document.getElementById('perm-emp-clear-btn')?.addEventListener('click', () => this._clearPermissionEmployee());
     document.getElementById('perm-emp-select')?.addEventListener('change', () => this._renderPermissionEmployeeTools());
+    document.getElementById('perm-dept-matrix')?.addEventListener('click', (e) => {
+      const btn = e.target.closest('.perm-tri[data-perm-dept]');
+      if (btn) this._cyclePermTri(btn);
+    });
+    document.getElementById('perm-emp-tools')?.addEventListener('click', (e) => {
+      const btn = e.target.closest('.perm-tri[data-emp-tool]');
+      if (btn) this._cyclePermTri(btn);
+    });
     document.getElementById('dashboard-close-btn').addEventListener('click', () => this.closeDashboard());
     document.getElementById('dashboard-modal').addEventListener('click', (e) => {
       if (e.target.id === 'dashboard-modal') this.closeDashboard();
@@ -6209,10 +6218,38 @@ class AppController {
     document.getElementById('permissions-modal')?.classList.add('hidden');
   }
 
+  _permStateLabel(state) {
+    if (state === 'allow') return '允許';
+    if (state === 'deny') return '拒絕';
+    return '繼承';
+  }
+
+  _permNextState(state) {
+    if (state === 'allow') return 'deny';
+    if (state === 'deny') return 'inherit';
+    return 'allow';
+  }
+
+  _permTriButton({ state, dept, tool, empTool }) {
+    const st = state || 'inherit';
+    const label = this._permStateLabel(st);
+    const deptAttr = dept != null ? ` data-perm-dept="${this._escapeHtml(dept)}"` : '';
+    const toolAttr = tool != null ? ` data-perm-tool="${this._escapeHtml(tool)}"` : '';
+    const empAttr = empTool != null ? ` data-emp-tool="${this._escapeHtml(empTool)}"` : '';
+    return `<button type="button" class="perm-tri state-${st}" data-state="${st}"${deptAttr}${toolAttr}${empAttr} title="點一下切換：允許→拒絕→繼承">${label}</button>`;
+  }
+
+  _cyclePermTri(btn) {
+    const next = this._permNextState(btn.getAttribute('data-state') || 'inherit');
+    btn.setAttribute('data-state', next);
+    btn.className = `perm-tri state-${next}`;
+    btn.textContent = this._permStateLabel(next);
+  }
+
   async _loadPermissionCenter() {
     const matrixEl = document.getElementById('perm-dept-matrix');
     const auditEl = document.getElementById('perm-audit-list');
-    if (matrixEl) matrixEl.innerHTML = '<span class="empty-hint">Loading...</span>';
+    if (matrixEl) matrixEl.innerHTML = '<span class="empty-hint">載入中…</span>';
     try {
       const data = await fetch('/api/permissions').then(r => r.json());
       this._permData = data;
@@ -6221,7 +6258,7 @@ class AppController {
       this._renderPermissionEmployeeTools();
       this._renderPermissionAudit();
     } catch (e) {
-      if (matrixEl) matrixEl.innerHTML = '<span class="empty-hint">Failed to load permissions</span>';
+      if (matrixEl) matrixEl.innerHTML = '<span class="empty-hint">載入權限失敗</span>';
       if (auditEl) auditEl.innerHTML = '';
     }
   }
@@ -6231,9 +6268,8 @@ class AppController {
     const el = document.getElementById('perm-dept-matrix');
     if (!data || !el) return;
     const tools = data.gated_tools || [];
-    const order = data.department_order || Object.keys(data.departments || {});
-    const depts = data.departments || {};
-    // Compact matrix: show bash + use_tool first, rest still editable
+    const order = data.department_order || Object.keys(data.department_states || {});
+    const states = data.department_states || {};
     const primary = tools.filter(t => t === 'bash' || t === 'use_tool');
     const rest = tools.filter(t => !primary.includes(t));
     const cols = [...primary, ...rest];
@@ -6242,11 +6278,10 @@ class AppController {
     for (const t of cols) html += `<th title="${this._escapeHtml(t)}">${this._escapeHtml(t)}</th>`;
     html += '</tr></thead><tbody>';
     for (const dept of order) {
-      const grants = new Set(depts[dept] || []);
+      const row = states[dept] || {};
       html += `<tr><td class="perm-dept-name">${this._escapeHtml(dept)}</td>`;
       for (const t of cols) {
-        const checked = grants.has(t) ? 'checked' : '';
-        html += `<td><input type="checkbox" data-perm-dept="${this._escapeHtml(dept)}" data-perm-tool="${this._escapeHtml(t)}" ${checked} /></td>`;
+        html += `<td>${this._permTriButton({ state: row[t] || 'inherit', dept, tool: t })}</td>`;
       }
       html += '</tr>';
     }
@@ -6262,7 +6297,7 @@ class AppController {
     const prefer = this._permHighlightEmployeeId;
     sel.innerHTML = emps.map(e => {
       const label = `${e.id} ${e.nickname || e.name} (${e.department})` +
-        (e.has_exception ? ' [例外]' : '');
+        (e.has_exception ? ' [有例外]' : '');
       const selected = prefer && prefer === e.id ? 'selected' : '';
       return `<option value="${this._escapeHtml(e.id)}" ${selected}>${this._escapeHtml(label)}</option>`;
     }).join('');
@@ -6276,26 +6311,22 @@ class AppController {
     if (!wrap || !sel || !data) return;
     const emp = (data.employees || []).find(e => e.id === sel.value);
     if (!emp) {
-      wrap.innerHTML = '<span class="empty-hint">No employee</span>';
+      wrap.innerHTML = '<span class="empty-hint">沒有員工</span>';
       return;
     }
     const tools = data.gated_tools || [];
-    const tokens = emp.tool_permissions || [];
-    const grants = new Set(tokens.filter(t => t && !String(t).startsWith('!') && !String(t).startsWith('-')));
-    const denies = new Set(tokens.filter(t => String(t).startsWith('!') || String(t).startsWith('-')).map(t => String(t).slice(1)));
+    const toolStates = emp.tool_states || {};
     const effective = new Set(emp.effective || []);
 
     let html = `<div class="perm-emp-meta">目前生效：${
       effective.size ? [...effective].map(t => this._escapeHtml(t)).join(', ') : '（無 gated）'
-    }${emp.has_exception ? '' : ' ← 部門預設'}</div>`;
+    }${emp.has_exception ? ' ← 含員工例外' : ' ← 純部門預設'}</div>`;
     html += '<div class="perm-emp-grid">';
     for (const t of tools) {
-      const g = grants.has(t) ? 'checked' : '';
-      const d = denies.has(t) ? 'checked' : '';
-      html += `<label class="perm-emp-row"><span class="perm-tool-name">${this._escapeHtml(t)}</span>` +
-        `<label class="perm-mini"><input type="checkbox" data-emp-grant="${this._escapeHtml(t)}" ${g}/> 允許</label>` +
-        `<label class="perm-mini deny"><input type="checkbox" data-emp-deny="${this._escapeHtml(t)}" ${d}/> 拒絕</label>` +
-        `</label>`;
+      const st = toolStates[t] || 'inherit';
+      html += `<div class="perm-emp-row"><span class="perm-tool-name">${this._escapeHtml(t)}</span>` +
+        this._permTriButton({ state: st, empTool: t }) +
+        `</div>`;
     }
     html += '</div>';
     wrap.innerHTML = html;
@@ -6320,17 +6351,31 @@ class AppController {
     }).join('');
   }
 
+  _collectTriTokens(selector, toolAttr) {
+    const tokens = [];
+    document.querySelectorAll(selector).forEach(btn => {
+      const tool = btn.getAttribute(toolAttr);
+      const state = btn.getAttribute('data-state') || 'inherit';
+      if (!tool || state === 'inherit') return;
+      if (state === 'allow') tokens.push(tool);
+      else if (state === 'deny') tokens.push('!' + tool);
+    });
+    return tokens;
+  }
+
   async _savePermissionDepartments() {
     const data = this._permData;
     if (!data) return;
     const departments = {};
     for (const dept of (data.department_order || [])) departments[dept] = [];
-    document.querySelectorAll('#perm-dept-matrix input[type=checkbox]').forEach(cb => {
-      const dept = cb.getAttribute('data-perm-dept');
-      const tool = cb.getAttribute('data-perm-tool');
+    document.querySelectorAll('#perm-dept-matrix .perm-tri[data-perm-dept]').forEach(btn => {
+      const dept = btn.getAttribute('data-perm-dept');
+      const tool = btn.getAttribute('data-perm-tool');
+      const state = btn.getAttribute('data-state') || 'inherit';
       if (!dept || !tool) return;
       if (!departments[dept]) departments[dept] = [];
-      if (cb.checked) departments[dept].push(tool);
+      if (state === 'allow') departments[dept].push(tool);
+      else if (state === 'deny') departments[dept].push('!' + tool);
     });
     const resp = await fetch('/api/permissions/departments', {
       method: 'PUT',
@@ -6338,30 +6383,39 @@ class AppController {
       body: JSON.stringify({ departments, actor_id: 'ceo' }),
     });
     if (!resp.ok) {
-      alert('儲存部門預設失敗');
+      this._showToast('儲存部門預設失敗', 'error');
       return;
     }
+    this._showToast('部門預設已儲存，立即生效', 'success');
     await this._loadPermissionCenter();
   }
 
   async _savePermissionEmployee() {
     const sel = document.getElementById('perm-emp-select');
     if (!sel || !sel.value) return;
-    const tokens = [];
-    document.querySelectorAll('#perm-emp-tools input[data-emp-grant]').forEach(cb => {
-      if (cb.checked) tokens.push(cb.getAttribute('data-emp-grant'));
-    });
-    document.querySelectorAll('#perm-emp-tools input[data-emp-deny]').forEach(cb => {
-      if (cb.checked) tokens.push('!' + cb.getAttribute('data-emp-deny'));
-    });
-    const resp = await fetch(`/api/permissions/employee/${encodeURIComponent(sel.value)}`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ tool_permissions: tokens, actor_id: 'ceo' }),
-    });
-    if (!resp.ok) {
-      alert('儲存員工例外失敗');
-      return;
+    const tokens = this._collectTriTokens('#perm-emp-tools .perm-tri[data-emp-tool]', 'data-emp-tool');
+    const allInherit = !document.querySelector('#perm-emp-tools .perm-tri[data-state="allow"], #perm-emp-tools .perm-tri[data-state="deny"]');
+    if (allInherit) {
+      const resp = await fetch(
+        `/api/permissions/employee/${encodeURIComponent(sel.value)}?actor_id=ceo`,
+        { method: 'DELETE' },
+      );
+      if (!resp.ok) {
+        this._showToast('儲存員工例外失敗', 'error');
+        return;
+      }
+      this._showToast('已改為全部繼承部門（例外已清除）', 'success');
+    } else {
+      const resp = await fetch(`/api/permissions/employee/${encodeURIComponent(sel.value)}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tool_permissions: tokens, actor_id: 'ceo' }),
+      });
+      if (!resp.ok) {
+        this._showToast('儲存員工例外失敗', 'error');
+        return;
+      }
+      this._showToast('員工例外已儲存，立即生效', 'success');
     }
     this._permHighlightEmployeeId = sel.value;
     await this._loadPermissionCenter();
@@ -6370,15 +6424,16 @@ class AppController {
   async _clearPermissionEmployee() {
     const sel = document.getElementById('perm-emp-select');
     if (!sel || !sel.value) return;
-    if (!confirm('清除此員工的例外，改回跟部門預設？')) return;
+    if (!confirm('清除此員工的例外，全部改回繼承部門預設？')) return;
     const resp = await fetch(
       `/api/permissions/employee/${encodeURIComponent(sel.value)}?actor_id=ceo`,
       { method: 'DELETE' },
     );
     if (!resp.ok) {
-      alert('清除例外失敗');
+      this._showToast('清除例外失敗', 'error');
       return;
     }
+    this._showToast('已清除例外，改跟部門', 'success');
     this._permHighlightEmployeeId = sel.value;
     await this._loadPermissionCenter();
   }

@@ -73,13 +73,35 @@ class TestEffectiveGatedGrants:
         monkeypatch.setattr(perm, "refresh_all_employee_agent_tools", lambda: None)
 
         saved = perm.save_department_defaults(
-            {"Engineering": ["bash"], "General": []},
+            {"Engineering": ["bash", "!use_tool"], "General": []},
             actor_id="ceo",
         )
         assert path.exists()
-        assert saved["Engineering"] == ["bash"]
+        assert "bash" in saved["Engineering"]
+        assert "!use_tool" in saved["Engineering"]
+        assert perm.department_tool_state("Engineering", "bash") == "allow"
+        assert perm.department_tool_state("Engineering", "use_tool") == "deny"
         assert audits and audits[0]["action"] == "update_department_defaults"
         assert audits[0]["actor_id"] == "ceo"
+
+    def test_employee_inherit_falls_through_to_department(self, tmp_path, monkeypatch):
+        from onemancompany.core import permissions as perm
+
+        path = tmp_path / "tool_permissions.yaml"
+        path.write_text(
+            yaml.safe_dump({"departments": {"Engineering": ["bash"]}}),
+            encoding="utf-8",
+        )
+        monkeypatch.setattr(perm, "PERMISSIONS_PATH", path)
+
+        emp = {
+            "department": "Engineering",
+            "tool_permissions": ["!use_tool"],  # deny use_tool; bash inherits
+        }
+        assert perm.employee_tool_state(emp, "bash") == "inherit"
+        assert perm.employee_tool_state(emp, "use_tool") == "deny"
+        assert perm.is_gated_tool_allowed(emp, "bash") is True
+        assert perm.is_gated_tool_allowed(emp, "use_tool") is False
 
 
 class TestSetEmployeePermissions:

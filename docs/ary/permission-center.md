@@ -4,40 +4,47 @@
 
 ## 一句話
 
-獨立頁面管理「部門預設 × 危險工具」矩陣，可對個別員工設例外（允許／拒絕），**拒絕優先**；每次變更寫稽核，存檔後立即生效，不用重啟 OMC。
+左側邊欄固定「權限中心」入口；部門×工具、員工例外都是**三段開關**（允許／拒絕／繼承），按儲存後有成功提示，立即生效。
 
-## 行為
+## 入口（所有登入者都看得到）
 
-| 項目 | 說明 |
+| 位置 | 說明 |
 |---|---|
-| 入口 | 工具列鎖頭按鈕「Permission Center」；職員概覽也會連過來（職員分頁任務） |
-| 部門預設 | 寫入 `company/human_resource/tool_permissions.yaml`；聘用／未設例外的員工依部門生效 |
-| 員工例外 | 寫入該員工 `profile.yaml` 的 `tool_permissions`；**有這個欄位（含 `[]`）就整份取代部門預設** |
-| 拒絕優先 | 例外清單裡的 `!bash` 或 `-bash` 會蓋掉允許 |
-| 熱生效 | `execute_tool`／下次任務 `_refresh_agent` 會重抓工具列表；存檔時也嘗試刷新記憶體中的 agent |
-| 稽核 | journal `permission_changed`／`permission_denied`＋ activity_log |
-| 管哪些工具 | bash、use_tool、預算／cron／webhook／背景任務、`request_api_key` 等 gated（見 D-01） |
-| 不管 | `web_fetch` 仍走 talent `allowed_users` 白名單；base 工具（讀寫檔等）全員可用 |
+| **左側邊欄最上** | 綠色框按鈕「🔒 權限中心」（主要入口，固定可見） |
+| 頂部狀態列 | 鎖頭＋「權限」小字（次要；窄螢幕可能要橫滑） |
+| 職員詳情 → 概覽 | 「到權限中心管理」（該頁本身是**唯讀**標籤，不能改） |
+
+沒有另設帳號權限：只要能開 OMC 後台，就能開權限中心。
+
+## 三段開關
+
+點格子循環：**允許 → 拒絕 → 繼承 → 允許**
+
+| 狀態 | 部門矩陣意義 | 員工例外意義 |
+|---|---|---|
+| 允許 | 此部門明確給此工具 | 此員工明確給 |
+| 拒絕 | 此部門明確不給（`!tool`） | 此員工明確不給（拒絕優先） |
+| 繼承 | 跟程式內建部門預設 | 跟該員工所屬部門的生效結果 |
+
+- 員工若「全部繼承」再儲存 → 會清除例外（跟部門）。
+- 舊的空白例外 `tool_permissions: []`（如 00006）仍視為**全部拒絕**（相容）。
+
+## 儲存
+
+- 「儲存部門預設」「儲存員工例外」：成功會跳出綠色 toast。
+- 寫入 `company/human_resource/tool_permissions.yaml`（version 2）或員工 `profile.yaml`；不用重啟。
 
 ## API
 
 | 方法 | 路徑 | 作用 |
 |---|---|---|
-| GET | `/api/permissions` | 矩陣＋員工例外＋近期稽核 |
-| PUT | `/api/permissions/departments` | 存部門預設 `{departments, actor_id}` |
-| PUT | `/api/permissions/employee/{id}` | 設例外 `{tool_permissions, actor_id}` |
-| DELETE | `/api/permissions/employee/{id}` | 清除例外，改跟部門 |
-
-## 與 D-01 的關係
-
-D-01 修好「gated 預設拒絕」後，本頁才是日常開關 bash／tools 的地方。未部署前 Harbor 上改這裡不會生效。
+| GET | `/api/permissions` | 含 `department_states`／`tool_states`（allow\|deny\|inherit） |
+| PUT | `/api/permissions/departments` | 存部門 token（可含 `!tool`） |
+| PUT | `/api/permissions/employee/{id}` | 設例外 |
+| DELETE | `/api/permissions/employee/{id}` | 清除例外 |
 
 ## 測試
 
 - `tests/unit/core/test_permissions.py`
 - `tests/unit/api/test_permissions_routes.py`
-- 既有 `test_tool_registry.py`（含拒絕優先）
-
-## 回滾
-
-`git revert` 本 commit；可手動刪 volume 內 `tool_permissions.yaml`（會回到程式內建部門預設）。
+- `tests/frontend/test_permission_center_ui.js`
