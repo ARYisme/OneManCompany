@@ -4848,6 +4848,24 @@ async def onboarding_dismiss(body: dict) -> dict:
     return {"ok": True}
 
 
+def _candidate_needs_market_purchase(candidate: dict | None) -> bool:
+    """Return True when this hire needs Talent Market purchase/clone.
+
+    Local talent packages already on disk must NOT go through cloud ``hire_talents``
+    — the market returns ``Talent X not found`` and blocks onboarding entirely.
+    """
+    if not candidate:
+        return False
+    from onemancompany.core.config import load_talent_profile
+
+    tid = str(candidate.get("talent_id") or candidate.get("id") or "").strip()
+    if not tid:
+        return False
+    if load_talent_profile(tid):
+        return False
+    return True
+
+
 @router.post("/api/candidates/batch-hire")
 async def batch_hire_candidates(body: dict) -> dict:
     """Batch hire multiple candidates. Returns immediately, onboarding runs in background."""
@@ -4867,14 +4885,29 @@ async def batch_hire_candidates(body: dict) -> dict:
     if not all_candidates:
         return {"error": "Batch not found"}
 
-    # --- Talent Market purchase (must complete before background work) ---
+    # --- Talent Market purchase (cloud talents only; skip local packages) ---
     from onemancompany.agents.recruitment import talent_market
     session_id = _pending_project_ctx.get(batch_id, {}).get("session_id", "")
-    talent_ids = [s.get("candidate_id", "") for s in selections]
 
-    if talent_market.connected and talent_ids:
+    def _cand_for(sel: dict) -> dict | None:
+        cid = sel.get("candidate_id", "")
+        return next(
+            (c for c in all_candidates if (c.get("id") or c.get("talent_id")) == cid),
+            None,
+        )
+
+    market_ids = []
+    for sel in selections:
+        cand = _cand_for(sel)
+        tid = str((cand or {}).get("talent_id") or sel.get("candidate_id") or "").strip()
+        if tid and _candidate_needs_market_purchase(cand):
+            market_ids.append(tid)
+        elif tid:
+            logger.info("[batch-hire] Skipping Talent Market purchase for local package {}", tid)
+
+    if talent_market.connected and market_ids:
         try:
-            purchase_result = await talent_market.hire(talent_ids, session_id=session_id)
+            purchase_result = await talent_market.hire(market_ids, session_id=session_id)
             if purchase_result.get("error"):
                 return {
                     "error": purchase_result.get("error", "Purchase failed"),
@@ -4898,7 +4931,7 @@ async def batch_hire_candidates(body: dict) -> dict:
             except Exception as e:
                 logger.error("Failed to onboard/clone talent {}: {}", tid, e)
 
-        await asyncio.gather(*[_onboard_one(tid) for tid in talent_ids])
+        await asyncio.gather(*[_onboard_one(tid) for tid in market_ids])
 
     # Collect COO contexts for all selections
     coo_ctxs = []

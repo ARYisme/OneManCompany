@@ -111,3 +111,43 @@ class TestBatchHirePurchase:
                 assert result["status"] == "onboarding"
         finally:
             recruitment.pending_candidates.pop("bp3", None)
+
+    @pytest.mark.asyncio
+    async def test_local_package_skips_market_purchase_even_when_connected(self):
+        """Local talent packages must not call cloud hire_talents (would 404 not found)."""
+        from onemancompany.agents import recruitment
+
+        recruitment.talent_market._session = MagicMock()
+        recruitment.talent_market.hire = AsyncMock(
+            return_value={"error": "Talent ary-product-planner not found"}
+        )
+
+        recruitment.pending_candidates["bp4"] = [
+            {"id": "ary-product-planner", "talent_id": "ary-product-planner",
+             "name": "企劃", "role": "Planner", "skill_set": [], "sprite": "employee_blue"}
+        ]
+        recruitment._pending_project_ctx["bp4"] = {}
+
+        try:
+            with patch("onemancompany.agents.onboarding.execute_hire", new_callable=AsyncMock) as mock_hire, \
+                 patch("onemancompany.agents.onboarding.generate_nickname", new_callable=AsyncMock, return_value="企劃仔"), \
+                 patch("onemancompany.core.config.load_talent_profile",
+                       return_value={"id": "ary-product-planner", "name": "企劃", "role": "Planner",
+                                     "llm_model": "x", "api_provider": "custom", "auth_method": "api_key"}), \
+                 patch("onemancompany.core.events.event_bus", MagicMock(publish=AsyncMock())):
+
+                mock_hire.return_value = MagicMock(id="00007")
+
+                from onemancompany.api.routes import batch_hire_candidates
+                result = await batch_hire_candidates({
+                    "batch_id": "bp4",
+                    "selections": [{"candidate_id": "ary-product-planner", "role": "Planner"}],
+                })
+
+                recruitment.talent_market.hire.assert_not_awaited()
+                assert result.get("error") is None
+                assert result["status"] == "onboarding"
+        finally:
+            recruitment.talent_market._session = None
+            recruitment.pending_candidates.pop("bp4", None)
+            recruitment._pending_project_ctx.pop("bp4", None)
