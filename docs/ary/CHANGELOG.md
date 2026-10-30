@@ -4,6 +4,12 @@
 
 ## 2026-10-30
 
+### 預計新增功能
+
+- **Projects 未歸類整理：批次歸入 Product／批次封存（含詳情單筆改 Product）**（commit `97c22b7`）：左側「未歸類」可進整理模式，勾選後批次指派到 Product 或批次封存；專案詳情可單筆改 Product。程式已合入 `ary-readable-ui`，**尚未部署 Harbor**。後續可另開「減少聊天亂開新專案」一輪。
+
+### 已部署／進行中
+
 - **Harbor 部署 568a4cf**（13:48–13:50 AEDT）：映像 `0.7.113-568a4cf`；本地人才 batch-hire 不再被雲端「Talent not found」擋住。回滾 `rollback-pre-hirefix-20261030T024752`。實測錄用 **00007 企劃**。詳見 [deploy-20261030-hirefix.md](deploy-20261030-hirefix.md)。
 - **Harbor 部署 eb76e88**（12:30–12:33 AEDT）：映像 `0.7.113-eb76e88`；繼承格顯示生效結果、內建預設按鈕、能力「跟部門一樣（目前：開/關）」、員工三欄、頂部鎖頭去字＋側欄縮小；五員工權限不變。回滾 `rollback-pre-inheritui-20261030T013006`。詳見 [deploy-20261030-inheritui.md](deploy-20261030-inheritui.md)。
 - **Harbor 部署 9bf7c5f**（12:15–12:18 AEDT）：映像 `0.7.113-9bf7c5f`；白話能力開關上線；五員工權限與部署前完全一致。回滾 `rollback-pre-capui-20261030T011519`。截圖見 [screenshots/](screenshots/)。詳見 [deploy-20261030-capui.md](deploy-20261030-capui.md)。
