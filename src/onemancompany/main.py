@@ -669,7 +669,7 @@ async def lifespan(app: FastAPI):
         _app_ver = _pkg_version("onemancompany")
     except Exception:
         _app_ver = "dev"
-    print(f"🏢 One Man Company HQ v{_app_ver} is running!")
+    print(f"🏢 OUR COMPANY.(TW&AUS) HQ v{_app_ver} is running!")
     print(f"   Frontend: http://localhost:{_settings.port}")
 
     # Background update checker
@@ -729,7 +729,7 @@ async def lifespan(app: FastAPI):
         print("[shutdown] Background tasks cancelled")
 
 
-app = FastAPI(title="One Man Company", lifespan=lifespan)
+app = FastAPI(title="OUR COMPANY.(TW&AUS)", lifespan=lifespan)
 app.add_middleware(NoCacheStaticMiddleware)
 app.include_router(router)
 app.mount("/", StaticFiles(directory=str(FRONTEND_DIR), html=True), name="frontend")
