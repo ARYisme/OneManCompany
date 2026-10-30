@@ -6,6 +6,7 @@
 
 ### 已部署／進行中
 
+- **Harbor 部署 0045d9d**（19:18–19:20 AEDT）：映像 `0.7.113-0045d9d`；瀏覽器標題與左上角品牌改為 **OUR COMPANY.(TW&AUS)**。回滾 `rollback-pre-brand-20261030T081809`。
 - **Harbor 部署 97c22b7**（18:57–18:59 AEDT）：映像 `0.7.113-97c22b7`；**Projects 未歸類整理**（批次歸入 Product／批次封存；詳情單筆改 Product）上線。回滾 `rollback-pre-organize-20261030T075704`。詳見 [deploy-20261030-organize.md](deploy-20261030-organize.md)。
 - **Harbor 部署 568a4cf**（13:48–13:50 AEDT）：映像 `0.7.113-568a4cf`；本地人才 batch-hire 不再被雲端「Talent not found」擋住。回滾 `rollback-pre-hirefix-20261030T024752`。實測錄用 **00007 企劃**。詳見 [deploy-20261030-hirefix.md](deploy-20261030-hirefix.md)。
 - **Harbor 部署 eb76e88**（12:30–12:33 AEDT）：映像 `0.7.113-eb76e88`；繼承格顯示生效結果、內建預設按鈕、能力「跟部門一樣（目前：開/關）」、員工三欄、頂部鎖頭去字＋側欄縮小；五員工權限不變。回滾 `rollback-pre-inheritui-20261030T013006`。詳見 [deploy-20261030-inheritui.md](deploy-20261030-inheritui.md)。
