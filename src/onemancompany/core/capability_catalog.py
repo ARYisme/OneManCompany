@@ -330,12 +330,22 @@ def apply_capability_states_to_profile_keys(
 
 def resolve_employee_capability_states(emp_data: dict, employee_id: str) -> dict[str, dict]:
     """Build UI state for each capability without mutating anything."""
-    from onemancompany.core.config import PF_PERMISSIONS, TOOLS_DIR, TOOL_YAML_FILENAME
-    from onemancompany.core.permissions import employee_tool_state, is_gated_tool_allowed
-    from onemancompany.core.config import read_text_utf
+    from onemancompany.core.config import (
+        PF_DEPARTMENT,
+        PF_PERMISSIONS,
+        TOOLS_DIR,
+        TOOL_YAML_FILENAME,
+        read_text_utf,
+    )
+    from onemancompany.core.permissions import (
+        department_allows,
+        employee_tool_state,
+        is_gated_tool_allowed,
+    )
     import yaml
 
     profile_perms = set(emp_data.get(PF_PERMISSIONS) or [])
+    dept = str(emp_data.get(PF_DEPARTMENT) or "General")
     out: dict[str, dict] = {}
 
     # web_fetch allowed_users
@@ -353,6 +363,7 @@ def resolve_employee_capability_states(emp_data: dict, employee_id: str) -> dict
             "id": cap.id,
             "state": "inherit",
             "effective_on": False,
+            "dept_effective_on": None,  # bool | None — for「跟部門一樣（目前：開/關）」
             "controllable": bool(cap.gated_tools or cap.profile_keys or cap.asset_tool)
             and not cap.display_only,
             "display_only": cap.display_only,
@@ -361,6 +372,7 @@ def resolve_employee_capability_states(emp_data: dict, employee_id: str) -> dict
         if cap.display_only and cap.id == "email_draft":
             entry["state"] = "on"
             entry["effective_on"] = True
+            entry["dept_effective_on"] = True
             entry["note"] = "公司郵件草稿工具；不能寄出"
             out[cap.id] = entry
             continue
@@ -379,6 +391,9 @@ def resolve_employee_capability_states(emp_data: dict, employee_id: str) -> dict
             entry["effective_on"] = any(
                 is_gated_tool_allowed(emp_data, t) for t in cap.gated_tools
             )
+            entry["dept_effective_on"] = any(
+                department_allows(dept, t) for t in cap.gated_tools
+            )
             out[cap.id] = entry
             continue
 
@@ -393,6 +408,8 @@ def resolve_employee_capability_states(emp_data: dict, employee_id: str) -> dict
             else:
                 entry["state"] = "mixed"
                 entry["effective_on"] = True
+            # Soft profile keys have no department matrix — treat「跟部門」as current on/off
+            entry["dept_effective_on"] = entry["effective_on"]
             out[cap.id] = entry
             continue
 
@@ -400,17 +417,21 @@ def resolve_employee_capability_states(emp_data: dict, employee_id: str) -> dict
             if web_fetch_users is None:
                 entry["state"] = "inherit"
                 entry["effective_on"] = False
+                entry["dept_effective_on"] = False
                 entry["note"] = "尚未安裝網頁讀取工具"
             elif not web_fetch_users:
                 entry["state"] = "on"
                 entry["effective_on"] = True
+                entry["dept_effective_on"] = True
                 entry["note"] = "開給全員"
             elif employee_id in web_fetch_users:
                 entry["state"] = "on"
                 entry["effective_on"] = True
+                entry["dept_effective_on"] = False
             else:
                 entry["state"] = "off"
                 entry["effective_on"] = False
+                entry["dept_effective_on"] = False
             out[cap.id] = entry
             continue
 

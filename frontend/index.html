@@ -53,7 +53,7 @@
           <button id="company-culture-toolbar-btn" class="toolbar-icon-btn" title="Company Culture" aria-label="Company Culture">&#127988;</button>
           <button id="company-direction-toolbar-btn" class="toolbar-icon-btn" title="Company Direction" aria-label="Company Direction">&#127919;</button>
           <button id="dashboard-toolbar-btn" class="toolbar-icon-btn" title="Dashboard" aria-label="Dashboard">&#128202;</button>
-          <button id="permissions-toolbar-btn" class="toolbar-icon-btn" title="權限中心" aria-label="權限中心">&#128274;<span class="toolbar-perm-label">權限</span></button>
+          <button id="permissions-toolbar-btn" class="toolbar-icon-btn" title="權限中心" aria-label="權限中心">&#128274;</button>
           <button id="announcements-toolbar-btn" class="toolbar-icon-btn" title="Announcements" aria-label="Announcements" style="position:relative;">&#128276;<span id="announcements-badge" class="announcement-badge hidden"></span></button>
           <button id="settings-toolbar-btn" class="toolbar-icon-btn" title="Settings" aria-label="Settings">&#9881;</button>
           <span class="status-item" id="connection-status" role="status" aria-live="polite">&#9679; OFFLINE</span>
@@ -639,12 +639,17 @@
           <div class="perm-advanced-body">
             <p class="perm-hint">給技術人員：部門 × 工具名稱，三段開關＝允許／拒絕／繼承。</p>
             <div class="perm-legend">
-              <span class="perm-tri state-allow">允許</span>
-              <span class="perm-tri state-deny">拒絕</span>
-              <span class="perm-tri state-inherit">繼承</span>
+              <span class="perm-tri state-allow explicit">允許</span>
+              <span class="perm-tri state-deny explicit">拒絕</span>
+              <span class="perm-tri state-inherit-allow">繼承（允許）</span>
+              <span class="perm-tri state-inherit-deny">繼承（不給）</span>
             </div>
             <div class="perm-section">
               <div class="perm-section-title">部門 × 工具</div>
+              <div class="perm-matrix-toolbar">
+                <button type="button" id="perm-show-builtins-btn" class="pixel-btn secondary">顯示內建預設</button>
+              </div>
+              <div id="perm-builtins-panel" class="perm-builtins-panel hidden"></div>
               <div id="perm-dept-matrix" class="perm-matrix-wrap"></div>
               <button id="perm-dept-save-btn" class="pixel-btn">儲存部門預設</button>
             </div>

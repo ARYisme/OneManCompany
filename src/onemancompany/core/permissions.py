@@ -405,6 +405,35 @@ def _audit_permission_change(
         logger.debug("permission activity audit failed: {}", exc)
 
 
+def code_builtin_defaults() -> dict[str, list[str]]:
+    """Programme built-in department → tool grants (before YAML overrides)."""
+    return _default_departments()
+
+
+def department_source_title(dept: str, tool_name: str) -> str:
+    """Human tooltip for a department matrix cell."""
+    override = department_tool_state(dept, tool_name)
+    code_has = tool_name in _code_default_grants(dept)
+    if override == "allow":
+        return f"部門明確允許 {tool_name}"
+    if override == "deny":
+        return f"部門明確拒絕 {tool_name}"
+    if code_has:
+        return f"程式內建預設：{dept} 有 {tool_name}"
+    return f"程式內建預設：{dept} 沒有 {tool_name}"
+
+
+def employee_source_title(emp_data: dict, tool_name: str) -> str:
+    """Human tooltip for employee exception / effective cell."""
+    dept = str(emp_data.get(PF_DEPARTMENT) or "General")
+    emp_st = employee_tool_state(emp_data, tool_name)
+    if emp_st == "allow":
+        return "員工例外覆蓋：允許"
+    if emp_st == "deny":
+        return "員工例外覆蓋：拒絕"
+    return department_source_title(dept, tool_name) + "（員工跟部門）"
+
+
 def build_permissions_snapshot() -> dict:
     """Payload for GET /api/permissions — capabilities + matrix + audit."""
     from onemancompany.core.capability_catalog import (
@@ -416,32 +445,53 @@ def build_permissions_snapshot() -> dict:
     from onemancompany.core.store import load_all_employees, load_activity_log
 
     raw = load_department_raw_tokens()
+    code_defaults = code_builtin_defaults()
     dept_states: dict[str, dict[str, str]] = {}
-    for dept in MATRIX_DEPARTMENTS:
+    dept_effective: dict[str, dict[str, bool]] = {}
+    dept_titles: dict[str, dict[str, str]] = {}
+    all_depts = list(MATRIX_DEPARTMENTS)
+    for dept in raw:
+        if dept not in all_depts:
+            all_depts.append(dept)
+    for dept in all_depts:
         dept_states[dept] = {
             t: department_tool_state(dept, t) for t in GATED_TOOL_NAMES
         }
-    for dept in raw:
-        if dept not in dept_states:
-            dept_states[dept] = {
-                t: department_tool_state(dept, t) for t in GATED_TOOL_NAMES
-            }
+        dept_effective[dept] = {
+            t: department_allows(dept, t) for t in GATED_TOOL_NAMES
+        }
+        dept_titles[dept] = {
+            t: department_source_title(dept, t) for t in GATED_TOOL_NAMES
+        }
 
     employees_out = []
     for eid, emp in sorted(load_all_employees().items()):
         exception = has_employee_exception(emp)
         tokens = list(emp.get(PF_TOOL_PERMISSIONS) or []) if exception else []
         tool_states = {t: employee_tool_state(emp, t) for t in GATED_TOOL_NAMES}
+        dept = str(emp.get(PF_DEPARTMENT) or "General")
+        dept_tool = {
+            t: department_allows(dept, t) for t in GATED_TOOL_NAMES
+        }
+        tool_effective = {
+            t: is_gated_tool_allowed(emp, t) for t in GATED_TOOL_NAMES
+        }
+        tool_titles = {
+            t: employee_source_title(emp, t) for t in GATED_TOOL_NAMES
+        }
         cap_states = resolve_employee_capability_states(emp, eid)
         employees_out.append({
             "id": eid,
             "name": emp.get(PF_NAME) or eid,
             "nickname": emp.get(PF_NICKNAME) or "",
             "role": emp.get(PF_ROLE) or "",
-            "department": emp.get(PF_DEPARTMENT) or "General",
+            "department": dept,
             "has_exception": exception,
             "tool_permissions": tokens,
             "tool_states": tool_states,
+            "department_tool_effective": dept_tool,
+            "tool_effective": tool_effective,
+            "tool_titles": tool_titles,
             "capability_states": cap_states,
             "effective": sorted(effective_gated_grants(emp)),
         })
@@ -455,9 +505,12 @@ def build_permissions_snapshot() -> dict:
         "capabilities": [capability_public_dict(c) for c in all_capabilities()],
         "presets": presets_public_list(),
         "gated_tools": list(GATED_TOOL_NAMES),
+        "code_defaults": code_defaults,
         "departments": load_department_defaults(),
         "department_tokens": raw,
         "department_states": dept_states,
+        "department_effective": dept_effective,
+        "department_titles": dept_titles,
         "department_order": MATRIX_DEPARTMENTS,
         "employees": employees_out,
         "audit": audit,

@@ -1038,6 +1038,7 @@ class AppController {
     document.getElementById('perm-emp-save-btn')?.addEventListener('click', () => this._savePermissionCapabilities());
     document.getElementById('perm-emp-tools-save-btn')?.addEventListener('click', () => this._savePermissionEmployee());
     document.getElementById('perm-emp-clear-btn')?.addEventListener('click', () => this._clearPermissionEmployee());
+    document.getElementById('perm-show-builtins-btn')?.addEventListener('click', () => this._togglePermissionBuiltins());
     document.getElementById('perm-emp-select')?.addEventListener('change', () => {
       this._renderPermissionCapabilities();
       this._renderPermissionEmployeeTools();
@@ -6231,10 +6232,16 @@ class AppController {
     document.getElementById('permissions-modal')?.classList.add('hidden');
   }
 
-  _permStateLabel(state) {
+  _permStateLabel(state, effectiveAllow) {
     if (state === 'allow') return '允許';
     if (state === 'deny') return '拒絕';
-    return '繼承';
+    return effectiveAllow ? '繼承（允許）' : '繼承（不給）';
+  }
+
+  _permTriClass(state, effectiveAllow) {
+    if (state === 'allow') return 'perm-tri state-allow explicit';
+    if (state === 'deny') return 'perm-tri state-deny explicit';
+    return effectiveAllow ? 'perm-tri state-inherit-allow' : 'perm-tri state-inherit-deny';
   }
 
   _permNextState(state) {
@@ -6243,20 +6250,27 @@ class AppController {
     return 'allow';
   }
 
-  _permTriButton({ state, dept, tool, empTool }) {
+  _permTriButton({ state, effectiveAllow, title, dept, tool, empTool }) {
     const st = state || 'inherit';
-    const label = this._permStateLabel(st);
+    const eff = !!effectiveAllow;
+    const label = this._permStateLabel(st, eff);
+    const cls = this._permTriClass(st, eff);
+    const tip = title
+      ? `${title}｜點一下切換：允許→拒絕→繼承`
+      : '點一下切換：允許→拒絕→繼承';
     const deptAttr = dept != null ? ` data-perm-dept="${this._escapeHtml(dept)}"` : '';
     const toolAttr = tool != null ? ` data-perm-tool="${this._escapeHtml(tool)}"` : '';
     const empAttr = empTool != null ? ` data-emp-tool="${this._escapeHtml(empTool)}"` : '';
-    return `<button type="button" class="perm-tri state-${st}" data-state="${st}"${deptAttr}${toolAttr}${empAttr} title="點一下切換：允許→拒絕→繼承">${label}</button>`;
+    return `<button type="button" class="${cls}" data-state="${st}" data-effective-allow="${eff ? '1' : '0'}"` +
+      `${deptAttr}${toolAttr}${empAttr} title="${this._escapeHtml(tip)}">${label}</button>`;
   }
 
   _cyclePermTri(btn) {
     const next = this._permNextState(btn.getAttribute('data-state') || 'inherit');
+    const eff = btn.getAttribute('data-effective-allow') === '1';
     btn.setAttribute('data-state', next);
-    btn.className = `perm-tri state-${next}`;
-    btn.textContent = this._permStateLabel(next);
+    btn.className = this._permTriClass(next, eff);
+    btn.textContent = this._permStateLabel(next, eff);
   }
 
   async _loadPermissionCenter() {
@@ -6281,9 +6295,11 @@ class AppController {
     }
   }
 
-  _capStateLabel(state) {
+  _capStateLabel(state, deptEffectiveOn) {
     if (state === 'on') return '開';
     if (state === 'off') return '關';
+    if (deptEffectiveOn === true) return '跟部門一樣（目前：開）';
+    if (deptEffectiveOn === false) return '跟部門一樣（目前：關）';
     return '跟部門一樣';
   }
 
@@ -6328,6 +6344,8 @@ class AppController {
       const st = stInfo.state || 'inherit';
       const risk = cap.risk || 'yellow';
       const controllable = cap.controllable !== false && !cap.display_only;
+      const deptEff = stInfo.dept_effective_on;
+      const deptAttr = deptEff === true ? '1' : (deptEff === false ? '0' : '');
       const toolsHint = (cap.gated_tools || []).length
         ? `對應：${(cap.gated_tools || []).join(', ')}`
         : (cap.profile_keys || []).length
@@ -6342,8 +6360,9 @@ class AppController {
         (stInfo.effective_on ? '<span class="cap-effective">目前生效中</span>' : '') +
         `</div></div>` +
         `<button type="button" class="cap-switch state-${this._escapeHtml(st)}" data-state="${this._escapeHtml(st)}" ` +
-        `data-cap-id="${this._escapeHtml(cap.id)}" data-risk="${this._escapeHtml(risk)}"${disabled}>` +
-        `${this._capStateLabel(st)}</button></div>`;
+        `data-cap-id="${this._escapeHtml(cap.id)}" data-risk="${this._escapeHtml(risk)}" ` +
+        `data-dept-eff="${deptAttr}"${disabled}>` +
+        `${this._capStateLabel(st, deptEff)}</button></div>`;
     }
     wrap.innerHTML = html;
   }
@@ -6358,9 +6377,11 @@ class AppController {
         `「${name}」屬於危險能力，可以直接操作系統。\n只應給信任的技術員工。\n\n確定要開啟？`
       )) return;
     }
+    const deptAttr = btn.getAttribute('data-dept-eff');
+    const deptEff = deptAttr === '1' ? true : (deptAttr === '0' ? false : null);
     btn.setAttribute('data-state', next);
     btn.className = `cap-switch state-${next}`;
-    btn.textContent = this._capStateLabel(next);
+    btn.textContent = this._capStateLabel(next, deptEff);
   }
 
   _applyCapabilityPreset(presetId) {
@@ -6385,9 +6406,11 @@ class AppController {
       const cid = btn.getAttribute('data-cap-id');
       if (!(cid in states)) return;
       const next = states[cid];
+      const deptAttr = btn.getAttribute('data-dept-eff');
+      const deptEff = deptAttr === '1' ? true : (deptAttr === '0' ? false : null);
       btn.setAttribute('data-state', next);
       btn.className = `cap-switch state-${next}`;
-      btn.textContent = this._capStateLabel(next);
+      btn.textContent = this._capStateLabel(next, deptEff);
     });
     this._showToast(`已套用「${preset.label}」，可再微調後儲存`, 'success');
   }
@@ -6428,6 +6451,8 @@ class AppController {
     const tools = data.gated_tools || [];
     const order = data.department_order || Object.keys(data.department_states || {});
     const states = data.department_states || {};
+    const effective = data.department_effective || {};
+    const titles = data.department_titles || {};
     const primary = tools.filter(t => t === 'bash' || t === 'use_tool');
     const rest = tools.filter(t => !primary.includes(t));
     const cols = [...primary, ...rest];
@@ -6437,14 +6462,47 @@ class AppController {
     html += '</tr></thead><tbody>';
     for (const dept of order) {
       const row = states[dept] || {};
+      const effRow = effective[dept] || {};
+      const tipRow = titles[dept] || {};
       html += `<tr><td class="perm-dept-name">${this._escapeHtml(dept)}</td>`;
       for (const t of cols) {
-        html += `<td>${this._permTriButton({ state: row[t] || 'inherit', dept, tool: t })}</td>`;
+        html += `<td>${this._permTriButton({
+          state: row[t] || 'inherit',
+          effectiveAllow: !!effRow[t],
+          title: tipRow[t] || '',
+          dept,
+          tool: t,
+        })}</td>`;
       }
       html += '</tr>';
     }
     html += '</tbody></table>';
     el.innerHTML = html;
+  }
+
+  _togglePermissionBuiltins() {
+    const panel = document.getElementById('perm-builtins-panel');
+    const btn = document.getElementById('perm-show-builtins-btn');
+    if (!panel || !this._permData) return;
+    if (!panel.classList.contains('hidden') && panel.innerHTML) {
+      panel.classList.add('hidden');
+      if (btn) btn.textContent = '顯示內建預設';
+      return;
+    }
+    const defaults = this._permData.code_defaults || {};
+    const order = this._permData.department_order || Object.keys(defaults);
+    let html = '<div class="perm-hint">以下是程式內建預設（還沒套部門 YAML 覆蓋前）：</div>';
+    for (const dept of order) {
+      const tools = defaults[dept] || [];
+      html += `<div class="perm-builtins-row"><strong>${this._escapeHtml(dept)}</strong>：` +
+        (tools.length
+          ? tools.map(t => `<code>${this._escapeHtml(t)}</code>`).join('、')
+          : '<span class="empty-hint">（無）</span>') +
+        `</div>`;
+    }
+    panel.innerHTML = html;
+    panel.classList.remove('hidden');
+    if (btn) btn.textContent = '隱藏內建預設';
   }
 
   _renderPermissionEmployeeSelect() {
@@ -6474,17 +6532,33 @@ class AppController {
     }
     const tools = data.gated_tools || [];
     const toolStates = emp.tool_states || {};
+    const deptEff = emp.department_tool_effective || {};
+    const toolEff = emp.tool_effective || {};
+    const titles = emp.tool_titles || {};
     const effective = new Set(emp.effective || []);
 
     let html = `<div class="perm-emp-meta">目前生效：${
       effective.size ? [...effective].map(t => this._escapeHtml(t)).join(', ') : '（無 gated）'
     }${emp.has_exception ? ' ← 含員工例外' : ' ← 純部門預設'}</div>`;
-    html += '<div class="perm-emp-grid">';
+    html += '<div class="perm-emp-grid perm-emp-grid-3">' +
+      '<span class="perm-emp-head">工具</span>' +
+      '<span class="perm-emp-head">部門給的</span>' +
+      '<span class="perm-emp-head">員工例外</span>' +
+      '<span class="perm-emp-head">最終結果</span>';
     for (const t of tools) {
       const st = toolStates[t] || 'inherit';
-      html += `<div class="perm-emp-row"><span class="perm-tool-name">${this._escapeHtml(t)}</span>` +
-        this._permTriButton({ state: st, empTool: t }) +
-        `</div>`;
+      const dOn = !!deptEff[t];
+      const finalOn = toolEff[t] != null ? !!toolEff[t] : effective.has(t);
+      const tip = titles[t] || '';
+      html += `<span class="perm-tool-name">${this._escapeHtml(t)}</span>` +
+        `<span class="perm-dept-readout" title="${this._escapeHtml(tip)}">${dOn ? '允許' : '不給'}</span>` +
+        this._permTriButton({
+          state: st,
+          effectiveAllow: dOn,
+          title: tip,
+          empTool: t,
+        }) +
+        `<span class="perm-final-pill ${finalOn ? 'on' : 'off'}" title="${this._escapeHtml(tip)}">${finalOn ? '允許' : '不給'}</span>`;
     }
     html += '</div>';
     wrap.innerHTML = html;

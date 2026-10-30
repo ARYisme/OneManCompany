@@ -103,6 +103,22 @@ class TestEffectiveGatedGrants:
         assert perm.is_gated_tool_allowed(emp, "bash") is True
         assert perm.is_gated_tool_allowed(emp, "use_tool") is False
 
+    def test_source_titles_and_code_defaults(self, tmp_path, monkeypatch):
+        from onemancompany.core import permissions as perm
+
+        path = tmp_path / "missing-tool_permissions.yaml"
+        monkeypatch.setattr(perm, "PERMISSIONS_PATH", path)
+
+        builtins = perm.code_builtin_defaults()
+        assert "bash" in builtins["Engineering"]
+        assert builtins["General"] == []
+        title = perm.department_source_title("Engineering", "bash")
+        assert "程式內建預設" in title
+        assert "bash" in title
+
+        emp = {"department": "Engineering", "tool_permissions": ["bash"]}
+        assert "員工例外覆蓋" in perm.employee_source_title(emp, "bash")
+
 
 class TestSetEmployeePermissions:
     @pytest.mark.asyncio

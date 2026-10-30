@@ -272,25 +272,25 @@ body { line-height: 1.5; }
   .emp-detail-tabs { overflow-x: auto; }
 }
 
-/* Sidebar Permission Center entry — always visible */
+/* Sidebar Permission Center entry — always visible (compact) */
 .sidebar-perm-btn {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 6px;
+  gap: 4px;
   width: 100%;
   margin: 0 0 6px;
-  padding: 10px 8px;
+  padding: 6px 6px;
   background: #1a241a;
-  border: 2px solid #3a5a3a;
+  border: 1px solid #3a5a3a;
   color: #cfc;
-  font-size: 13px;
+  font-size: 11px;
   font-weight: 600;
   cursor: pointer;
-  border-radius: 4px;
+  border-radius: 3px;
+  line-height: 1.2;
 }
 .sidebar-perm-btn:hover { background: #243024; border-color: #5a8a5a; color: #fff; }
-.toolbar-perm-label { font-size: 10px; margin-left: 2px; vertical-align: middle; }
 
 /* Tri-state permission switches */
 .perm-legend { display: flex; gap: 8px; margin-bottom: 4px; flex-wrap: wrap; }
@@ -308,7 +308,58 @@ body { line-height: 1.5; }
 .perm-tri.state-allow { background: #1e3a1e; border-color: #4a8a4a; color: #bdb; }
 .perm-tri.state-deny { background: #3a1e1e; border-color: #8a4a4a; color: #ebb; }
 .perm-tri.state-inherit { background: #1e1e2a; border-color: #456; color: #9ab; }
+.perm-tri.state-inherit-allow { background: #1a2a1a; border-color: #3a5a3a; color: #8c8; font-weight: 400; }
+.perm-tri.state-inherit-deny { background: #1a1a1a; border-color: #333; color: #888; font-weight: 400; }
+.perm-tri.explicit {
+  font-weight: 700;
+  box-shadow: inset 0 0 0 1px rgba(255,255,255,0.18);
+  border-width: 2px;
+}
 .perm-tri:hover { filter: brightness(1.15); }
+.perm-matrix-toolbar { margin-bottom: 8px; }
+.perm-builtins-panel {
+  margin-bottom: 10px;
+  padding: 8px 10px;
+  border: 1px solid #333;
+  background: #121212;
+  font-size: 11px;
+  color: #bbb;
+  max-height: 180px;
+  overflow-y: auto;
+}
+.perm-builtins-panel.hidden { display: none; }
+.perm-builtins-row { padding: 3px 0; border-bottom: 1px solid #222; }
+.perm-builtins-row code { color: #9ad; }
+.perm-emp-grid.perm-emp-grid-3 {
+  display: grid;
+  grid-template-columns: minmax(90px, 1fr) minmax(100px, 1.1fr) minmax(110px, 1.2fr) minmax(90px, 1fr);
+  gap: 6px 8px;
+  align-items: center;
+  max-height: 280px;
+  overflow-y: auto;
+  margin-bottom: 8px;
+  font-size: 11px;
+  color: #ccc;
+}
+.perm-emp-grid-3 .perm-emp-head {
+  color: #888;
+  font-size: 10px;
+  border-bottom: 1px solid #333;
+  padding-bottom: 4px;
+  position: sticky;
+  top: 0;
+  background: #0e0e0e;
+}
+.perm-final-pill {
+  display: inline-block;
+  padding: 3px 8px;
+  border-radius: 3px;
+  font-size: 11px;
+  border: 1px solid #444;
+}
+.perm-final-pill.on { background: #1e3a1e; border-color: #4a8a4a; color: #bdb; }
+.perm-final-pill.off { background: #222; border-color: #444; color: #888; }
+.perm-dept-readout { color: #9ab; font-size: 11px; }
 .perm-matrix td { padding: 4px; }
 .perm-emp-row {
   display: grid;

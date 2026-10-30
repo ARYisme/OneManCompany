@@ -122,3 +122,21 @@ class TestCapabilityCatalog:
         assert "上網查資料" in names
         assert "使用公司工具和設備" in names
         assert "bash" not in names
+
+    def test_dept_effective_on_for_gated_inherit(self, tmp_path, monkeypatch):
+        from onemancompany.core import capability_catalog as cat
+        from onemancompany.core import permissions as perm
+
+        path = tmp_path / "tool_permissions.yaml"
+        path.write_text(
+            yaml.safe_dump({"version": 2, "departments": {"Engineering": []}}),
+            encoding="utf-8",
+        )
+        monkeypatch.setattr(perm, "PERMISSIONS_PATH", path)
+
+        emp = {"department": "Engineering"}  # no exception → inherit
+        states = cat.resolve_employee_capability_states(emp, "00099")
+        assert states["bash"]["state"] == "inherit"
+        # Engineering code default includes bash
+        assert states["bash"]["dept_effective_on"] is True
+        assert states["use_tool"]["dept_effective_on"] is True
