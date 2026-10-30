@@ -1973,15 +1973,20 @@ def _register_all_internal_tools() -> None:
         load_skill,
         resume_held_task, update_project_team,
         read_node_detail, view_meeting_minutes,
-        # Formerly gated — now available to all employees
+    ]
+    for t in _base:
+        tool_registry.register(t, ToolMeta(name=t.name, category="base"))
+
+    # Dangerous / privileged tools — deny-by-default; require tool_permissions grant
+    _gated = [
         bash, use_tool, set_project_budget,
         set_cron, stop_cron_job, setup_webhook, remove_webhook,
         list_automations, notify_ceo, report_to_ceo,
         start_background_task, check_background_task, stop_background_task,
         list_background_tasks, request_api_key,
     ]
-    for t in _base:
-        tool_registry.register(t, ToolMeta(name=t.name, category="base"))
+    for t in _gated:
+        tool_registry.register(t, ToolMeta(name=t.name, category="gated"))
 
     # Product management tools — available to all employees
     from onemancompany.agents.product_tools import PRODUCT_TOOLS as _product_tools

@@ -79,9 +79,10 @@ class ToolRegistry:
 
         Filtering rules by category:
         - base: always included
-        - gated: included if tool name in employee's tool_permissions
+        - gated: deny-by-default; included only if tool name is in tool_permissions
+          and not explicitly denied (``!tool`` / ``-tool`` entries win)
         - role: included if employee's role in meta.allowed_roles
-        - asset: included if allowed_users is None OR employee_id in allowed_users
+        - asset: company assets open; talent assets filter by allowed_users/roles
         """
         from onemancompany.core.store import load_employee
 
@@ -101,6 +102,8 @@ class ToolRegistry:
         """Return all tools, bypassing role restrictions except for specific excluded roles.
 
         Used for EA chat where EA needs near-full access.
+        Note: still subject to gated permission checks when tools are later
+        filtered via get_tools_for / execute_tool — this helper only skips role gates.
         """
         result = []
         for name, tool in self._tools.items():
@@ -112,15 +115,43 @@ class ToolRegistry:
         return result
 
     @staticmethod
-    def _is_allowed(meta: ToolMeta, emp_data: dict, employee_id: str) -> bool:
-        """Check whether an employee is allowed to use a tool based on its category."""
-        # EA has full access to all tools — privileged role
-        if emp_data.get("role", "") == "EA":
-            return True
+    def _permission_tokens(emp_data: dict) -> list[str]:
+        """Return raw tool_permissions list (may include deny prefixes)."""
+        perms = emp_data.get("tool_permissions")
+        if not perms:
+            return []
+        return [str(p) for p in perms]
 
+    @classmethod
+    def _is_explicitly_denied(cls, tool_name: str, emp_data: dict) -> bool:
+        """Deny-first: ``!name`` or ``-name`` in tool_permissions blocks the tool."""
+        tokens = cls._permission_tokens(emp_data)
+        return f"!{tool_name}" in tokens or f"-{tool_name}" in tokens
+
+    @classmethod
+    def _has_explicit_grant(cls, tool_name: str, emp_data: dict) -> bool:
+        tokens = cls._permission_tokens(emp_data)
+        return tool_name in tokens
+
+    @classmethod
+    def _is_allowed(cls, meta: ToolMeta, emp_data: dict, employee_id: str) -> bool:
+        """Check whether an employee is allowed to use a tool based on its category.
+
+        Deny-first for gated tools: explicit deny wins; missing grant = deny.
+        EA role privilege does NOT bypass gated tools (must be granted explicitly).
+        """
         category = meta.category
 
-        if category in ("base", "gated"):
+        if category == "base":
+            return True
+
+        if category == "gated":
+            if cls._is_explicitly_denied(meta.name, emp_data):
+                return False
+            return cls._has_explicit_grant(meta.name, emp_data)
+
+        # EA has full access to non-gated tools (role / asset)
+        if emp_data.get("role", "") == "EA":
             return True
 
         if category == "role":
@@ -132,7 +163,7 @@ class ToolRegistry:
             # Company-provided asset tools: available to all employees
             if meta.source != "talent":
                 return True
-            # Talent-brought tools: filter by allowed_users/allowed_roles
+            # Talent-brought tools (e.g. web_fetch): filter by allowed_users/allowed_roles
             if meta.allowed_users is None and meta.allowed_roles is None:
                 return True
             if meta.allowed_users and employee_id in meta.allowed_users:
@@ -285,6 +316,88 @@ class ToolRegistry:
 tool_registry = ToolRegistry()
 
 
+def _write_permission_audit(
+    employee_id: str,
+    tool_name: str,
+    *,
+    action: str,
+    reason: str = "",
+    actor_id: str | None = None,
+) -> None:
+    """Append a permission deny/change record to journal + activity log.
+
+    Best-effort: audit failures must never unblock a denial.
+    """
+    try:
+        from onemancompany.core.journal import EvidenceKind, EvidenceRecord, Journal
+
+        kind = (
+            EvidenceKind.PERMISSION_DENIED
+            if action in ("deny", "denied")
+            else EvidenceKind.PERMISSION_CHANGED
+        )
+        Journal().write_sync(
+            EvidenceRecord(
+                kind=kind,
+                agent=employee_id or "system",
+                employee_id=employee_id,
+                payload={
+                    "tool": tool_name,
+                    "action": action,
+                    "reason": reason,
+                    "actor_id": actor_id or employee_id,
+                },
+            )
+        )
+    except Exception as exc:
+        logger.debug("permission journal audit failed: {}", exc)
+
+    try:
+        from onemancompany.core.store import append_activity_sync
+
+        append_activity_sync(
+            {
+                "type": "permission_denied" if action in ("deny", "denied") else "permission_changed",
+                "employee_id": employee_id,
+                "tool": tool_name,
+                "action": action,
+                "reason": reason,
+                "actor_id": actor_id or employee_id,
+            }
+        )
+    except Exception as exc:
+        logger.debug("permission activity audit failed: {}", exc)
+
+
+def check_tool_permission(employee_id: str, tool_name: str) -> tuple[bool, str]:
+    """Return (allowed, reason) for employee_id calling tool_name.
+
+    Unknown tools are left to execute_tool's not-found path (allowed=True here
+    so the clearer error surfaces). Missing employee → deny.
+    """
+    from onemancompany.core.store import load_employee
+
+    meta = tool_registry.get_meta(tool_name)
+    if meta is None:
+        return True, ""
+
+    emp_data = load_employee(employee_id)
+    if not emp_data:
+        return False, f"Employee {employee_id} not found"
+
+    if ToolRegistry._is_allowed(meta, emp_data, employee_id):
+        return True, ""
+
+    if meta.category == "gated":
+        if ToolRegistry._is_explicitly_denied(tool_name, emp_data):
+            return False, f"Tool '{tool_name}' is explicitly denied for this employee"
+        return False, (
+            f"Tool '{tool_name}' requires explicit permission "
+            f"(not in tool_permissions)"
+        )
+    return False, f"Tool '{tool_name}' is not authorized for this employee"
+
+
 # ------------------------------------------------------------------
 # Unified tool execution — single path for all tool calls
 # ------------------------------------------------------------------
@@ -302,6 +415,17 @@ async def execute_tool(employee_id: str, tool_name: str, args: dict) -> dict:
     fn = tool_registry.get_tool(tool_name)
     if not fn:
         return {"status": "error", "message": f"Tool '{tool_name}' not found"}
+
+    # Defense-in-depth: re-check permissions even if the tool was somehow exposed
+    allowed, deny_reason = check_tool_permission(employee_id, tool_name)
+    if not allowed:
+        _write_permission_audit(
+            employee_id,
+            tool_name,
+            action="deny",
+            reason=deny_reason,
+        )
+        return {"status": "denied", "message": deny_reason}
 
     # Context vars may already be set by vessel._execute_task for
     # company-hosted agents. For MCP calls they won't be set yet.
@@ -348,7 +472,6 @@ async def execute_tool(employee_id: str, tool_name: str, args: dict) -> dict:
             result = await fn(**args)
         else:
             result = fn(**args)
-
         # Normalize result
         if isinstance(result, dict):
             norm = result

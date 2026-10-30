@@ -31,6 +31,8 @@ class EvidenceKind(str, Enum):
     TASK_DISPATCH = "task_dispatch"
     TASK_COMPLETED = "task_completed"
     TOOL_CALL = "tool_call"
+    PERMISSION_DENIED = "permission_denied"
+    PERMISSION_CHANGED = "permission_changed"
     RESOLUTION_DECIDED = "resolution_decided"
     PERFORMANCE_REVIEW = "performance_review"
     COST_RECORDED = "cost_recorded"

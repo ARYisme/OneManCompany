@@ -2,6 +2,10 @@
 
 此 fork 以上游 1mancompany/OneManCompany `3fde188` 為基底（Apache-2.0）。以下為 ARY 的修改，時間為 AEDT。
 
+## 2026-10-30
+
+- **D-01 bash／危險工具權限**：修正「清空 `tool_permissions` 仍拿得到 bash」的漏洞。bash、`use_tool`、cron／webhook／背景任務、`request_api_key` 等改回 `gated`（預設拒絕、`!tool` 拒絕優先）；`execute_tool` 再檢查並寫 `permission_denied` 稽核。EA 角色不再自動拿到 gated。`web_fetch` 白名單與 5998b66 bash_guard **未改**。部署後 EA／COO 若仍需 bash 等要補授權；00006 維持 `[]`。詳見 [d01-bash-permissions.md](d01-bash-permissions.md)。**尚未部署**（等 ARY 同意）。
+
 ## 2026-10-29
 
 - 6 個本地人才包 v2 補強（ary-coder、ary-copywriter、ary-market-researcher、ary-secretary、ary-tw-stock、ary-vic-regulation）：

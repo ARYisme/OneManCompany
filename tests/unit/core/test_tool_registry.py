@@ -174,16 +174,50 @@ class TestGetToolsFor:
         assert "list_colleagues" in tool_names
 
     @patch("onemancompany.core.state.company_state")
-    def test_gated_tools_always_included(self, mock_state):
-        """Gated category now treated same as base — always included."""
+    def test_gated_tools_require_explicit_permission(self, mock_state):
+        """Gated tools (e.g. bash) are deny-by-default — need tool_permissions grant."""
         reg = self._build_registry()
         emp = _make_employee("00010", role="Designer", tool_permissions=[])
         mock_state.employees = {"00010": emp}
 
         tools = reg.get_tools_for("00010")
         tool_names = [t.name for t in tools]
-        # bash is registered as "gated" in _build_registry but now always allowed
+        assert "bash" not in tool_names
+        assert "list_colleagues" in tool_names  # base still allowed
+
+    @patch("onemancompany.core.state.company_state")
+    def test_gated_tools_granted_when_in_permissions(self, mock_state):
+        reg = self._build_registry()
+        emp = _make_employee("00010", role="Designer", tool_permissions=["bash"])
+        mock_state.employees = {"00010": emp}
+
+        tools = reg.get_tools_for("00010")
+        tool_names = [t.name for t in tools]
         assert "bash" in tool_names
+
+    @patch("onemancompany.core.state.company_state")
+    def test_gated_deny_overrides_grant(self, mock_state):
+        """Deny-first: explicit deny of a gated tool wins over a grant."""
+        reg = self._build_registry()
+        emp = _make_employee(
+            "00010", role="Engineer", tool_permissions=["bash", "!bash"]
+        )
+        mock_state.employees = {"00010": emp}
+
+        tools = reg.get_tools_for("00010")
+        tool_names = [t.name for t in tools]
+        assert "bash" not in tool_names
+
+    @patch("onemancompany.core.state.company_state")
+    def test_employee_00006_style_empty_perms_no_bash(self, mock_state):
+        """Regression D-01: Analyst with tool_permissions=[] must not receive bash."""
+        reg = self._build_registry()
+        emp = _make_employee("00006", role="Analyst", tool_permissions=[])
+        mock_state.employees = {"00006": emp}
+
+        tools = reg.get_tools_for("00006")
+        tool_names = [t.name for t in tools]
+        assert "bash" not in tool_names
 
     @patch("onemancompany.core.state.company_state")
     def test_role_tools_matching_role(self, mock_state):
@@ -470,6 +504,80 @@ class TestGetAllToolsExceptRoles:
 # ---------------------------------------------------------------------------
 
 # ---------------------------------------------------------------------------
+# execute_tool — permission gate + audit
+# ---------------------------------------------------------------------------
+
+class TestExecuteToolPermissionGate:
+    """execute_tool must deny gated tools without grant and leave an audit record."""
+
+    @pytest.mark.asyncio
+    @patch("onemancompany.core.state.company_state")
+    async def test_bash_denied_without_permission_writes_audit(self, mock_state):
+        from onemancompany.core.tool_registry import ToolMeta, execute_tool, tool_registry
+
+        emp = _make_employee("00006", role="Analyst", tool_permissions=[])
+        mock_state.employees = {"00006": emp}
+
+        mock_bash = MagicMock()
+        mock_bash.name = "bash"
+        mock_bash.ainvoke = AsyncMock(return_value={"status": "ok", "result": "should not run"})
+
+        with patch.object(tool_registry, "get_tool", return_value=mock_bash):
+            with patch.object(
+                tool_registry,
+                "get_meta",
+                return_value=ToolMeta(name="bash", category="gated"),
+            ):
+                with patch("onemancompany.core.vessel._current_vessel"):
+                    with patch(
+                        "onemancompany.core.tool_registry._write_permission_audit"
+                    ) as mock_audit:
+                        result = await execute_tool(
+                            "00006", "bash", {"command": "echo hi"}
+                        )
+
+        assert result["status"] == "denied"
+        assert "bash" in result.get("message", "").lower()
+        mock_bash.ainvoke.assert_not_called()
+        assert mock_audit.called, "permission denial must leave an audit record"
+        audit_kwargs = mock_audit.call_args.kwargs or {}
+        audit_args = mock_audit.call_args.args or ()
+        # employee_id, tool_name, action at minimum
+        combined = " ".join(str(a) for a in audit_args) + " " + " ".join(
+            f"{k}={v}" for k, v in audit_kwargs.items()
+        )
+        assert "00006" in combined
+        assert "bash" in combined
+        assert "deny" in combined.lower() or "denied" in combined.lower()
+
+    @pytest.mark.asyncio
+    @patch("onemancompany.core.state.company_state")
+    async def test_bash_allowed_with_permission(self, mock_state):
+        from onemancompany.core.tool_registry import ToolMeta, execute_tool, tool_registry
+
+        emp = _make_employee("00010", role="Engineer", tool_permissions=["bash"])
+        mock_state.employees = {"00010": emp}
+
+        mock_bash = MagicMock()
+        mock_bash.name = "bash"
+        mock_bash.ainvoke = AsyncMock(return_value={"status": "ok", "stdout": "hi"})
+
+        with patch.object(tool_registry, "get_tool", return_value=mock_bash):
+            with patch.object(
+                tool_registry,
+                "get_meta",
+                return_value=ToolMeta(name="bash", category="gated"),
+            ):
+                with patch("onemancompany.core.vessel._current_vessel"):
+                    result = await execute_tool(
+                        "00010", "bash", {"command": "echo hi"}
+                    )
+
+        assert result.get("status") == "ok"
+        mock_bash.ainvoke.assert_awaited()
+
+
+# ---------------------------------------------------------------------------
 # execute_tool — employee_id auto-fill
 # ---------------------------------------------------------------------------
 
@@ -567,10 +675,10 @@ class TestProxiedToolsEmployeeId:
         with patch("onemancompany.core.store.load_employee", return_value={"role": "EA"}):
             proxied = reg.get_proxied_tools_for("00004")
 
-        # Simulate LLM calling the tool WITHOUT employee_id
-        with patch("onemancompany.core.tool_registry.tool_registry", reg):
-            with patch("onemancompany.core.vessel._current_vessel"):
-                await proxied[0].ainvoke({"name": "test"})
+            # Simulate LLM calling the tool WITHOUT employee_id
+            with patch("onemancompany.core.tool_registry.tool_registry", reg):
+                with patch("onemancompany.core.vessel._current_vessel"):
+                    await proxied[0].ainvoke({"name": "test"})
 
         assert captured["employee_id"] == "00004"
 
@@ -618,10 +726,10 @@ class TestProxiedToolsEmployeeId:
         with patch("onemancompany.core.store.load_employee", return_value={"role": "EA"}):
             proxied = reg.get_proxied_tools_for("00004")
 
-        # LLM calls with target_employee_id="00002"
-        with patch("onemancompany.core.tool_registry.tool_registry", reg):
-            with patch("onemancompany.core.vessel._current_vessel"):
-                await proxied[0].ainvoke({"target_employee_id": "00002", "description": "task"})
+            # LLM calls with target_employee_id="00002"
+            with patch("onemancompany.core.tool_registry.tool_registry", reg):
+                with patch("onemancompany.core.vessel._current_vessel"):
+                    await proxied[0].ainvoke({"target_employee_id": "00002", "description": "task"})
 
         assert captured["target_employee_id"] == "00002", (
             f"target_employee_id should be '00002', got '{captured['target_employee_id']}'"
