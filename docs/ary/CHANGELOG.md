@@ -4,6 +4,7 @@
 
 ## 2026-10-30
 
+- **權限中心**：工具列新增 Permission Center（部門×gated 工具矩陣、員工例外允許／拒絕、稽核清單）。存檔寫 `tool_permissions.yaml`／員工 profile，熱生效不用重啟；拒絕優先（`!tool`）。API：`GET/PUT /api/permissions*`。詳見 [permission-center.md](permission-center.md)。**尚未部署**。
 - **D-01 bash／危險工具權限**：修正「清空 `tool_permissions` 仍拿得到 bash」的漏洞。bash、`use_tool`、cron／webhook／背景任務、`request_api_key` 等改回 `gated`（預設拒絕、`!tool` 拒絕優先）；`execute_tool` 再檢查並寫 `permission_denied` 稽核。EA 角色不再自動拿到 gated。`web_fetch` 白名單與 5998b66 bash_guard **未改**。部署後 EA／COO 若仍需 bash 等要補授權；00006 維持 `[]`。詳見 [d01-bash-permissions.md](d01-bash-permissions.md)。**尚未部署**（等 ARY 同意）。
 
 ## 2026-10-29

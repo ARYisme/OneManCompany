@@ -114,31 +114,13 @@ class ToolRegistry:
             result.append(tool)
         return result
 
-    @staticmethod
-    def _permission_tokens(emp_data: dict) -> list[str]:
-        """Return raw tool_permissions list (may include deny prefixes)."""
-        perms = emp_data.get("tool_permissions")
-        if not perms:
-            return []
-        return [str(p) for p in perms]
-
-    @classmethod
-    def _is_explicitly_denied(cls, tool_name: str, emp_data: dict) -> bool:
-        """Deny-first: ``!name`` or ``-name`` in tool_permissions blocks the tool."""
-        tokens = cls._permission_tokens(emp_data)
-        return f"!{tool_name}" in tokens or f"-{tool_name}" in tokens
-
-    @classmethod
-    def _has_explicit_grant(cls, tool_name: str, emp_data: dict) -> bool:
-        tokens = cls._permission_tokens(emp_data)
-        return tool_name in tokens
-
     @classmethod
     def _is_allowed(cls, meta: ToolMeta, emp_data: dict, employee_id: str) -> bool:
         """Check whether an employee is allowed to use a tool based on its category.
 
-        Deny-first for gated tools: explicit deny wins; missing grant = deny.
-        EA role privilege does NOT bypass gated tools (must be granted explicitly).
+        Deny-first for gated tools via permissions.effective resolution
+        (department defaults + employee exception; ``!tool`` wins).
+        EA role privilege does NOT bypass gated tools.
         """
         category = meta.category
 
@@ -146,9 +128,8 @@ class ToolRegistry:
             return True
 
         if category == "gated":
-            if cls._is_explicitly_denied(meta.name, emp_data):
-                return False
-            return cls._has_explicit_grant(meta.name, emp_data)
+            from onemancompany.core.permissions import is_gated_tool_allowed
+            return is_gated_tool_allowed(emp_data, meta.name)
 
         # EA has full access to non-gated tools (role / asset)
         if emp_data.get("role", "") == "EA":
@@ -389,11 +370,9 @@ def check_tool_permission(employee_id: str, tool_name: str) -> tuple[bool, str]:
         return True, ""
 
     if meta.category == "gated":
-        if ToolRegistry._is_explicitly_denied(tool_name, emp_data):
-            return False, f"Tool '{tool_name}' is explicitly denied for this employee"
         return False, (
             f"Tool '{tool_name}' requires explicit permission "
-            f"(not in tool_permissions)"
+            f"(department default or employee exception; deny-first)"
         )
     return False, f"Tool '{tool_name}' is not authorized for this employee"
 

@@ -50,6 +50,7 @@
           <button id="company-culture-toolbar-btn" class="toolbar-icon-btn" title="Company Culture" aria-label="Company Culture">&#127988;</button>
           <button id="company-direction-toolbar-btn" class="toolbar-icon-btn" title="Company Direction" aria-label="Company Direction">&#127919;</button>
           <button id="dashboard-toolbar-btn" class="toolbar-icon-btn" title="Dashboard" aria-label="Dashboard">&#128202;</button>
+          <button id="permissions-toolbar-btn" class="toolbar-icon-btn" title="Permission Center" aria-label="Permission Center">&#128274;</button>
           <button id="announcements-toolbar-btn" class="toolbar-icon-btn" title="Announcements" aria-label="Announcements" style="position:relative;">&#128276;<span id="announcements-badge" class="announcement-badge hidden"></span></button>
           <button id="settings-toolbar-btn" class="toolbar-icon-btn" title="Settings" aria-label="Settings">&#9881;</button>
           <span class="status-item" id="connection-status" role="status" aria-live="polite">&#9679; OFFLINE</span>
@@ -585,6 +586,37 @@
       </div>
       <div class="modal-body" style="flex-direction:column;padding:8px;overflow-y:auto;">
         <div id="tool-list-body"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Permission Center Modal (NAS-style department × tool matrix) -->
+  <div id="permissions-modal" class="modal-overlay hidden">
+    <div class="modal-content permissions-modal-content">
+      <div class="modal-header">
+        <h3 class="pixel-title">&#128274; Permission Center</h3>
+        <button id="permissions-close-btn" class="modal-close">&#10005;</button>
+      </div>
+      <div class="modal-body permissions-modal-body">
+        <p class="perm-hint">部門預設 × 危險工具。員工可設例外；<code>!工具名</code> 拒絕優先。存檔後立即生效，不用重啟。</p>
+        <div class="perm-section">
+          <div class="perm-section-title">部門預設</div>
+          <div id="perm-dept-matrix" class="perm-matrix-wrap"></div>
+          <button id="perm-dept-save-btn" class="pixel-btn">儲存部門預設</button>
+        </div>
+        <div class="perm-section">
+          <div class="perm-section-title">員工例外</div>
+          <div class="perm-emp-controls">
+            <select id="perm-emp-select"></select>
+            <button id="perm-emp-clear-btn" class="pixel-btn secondary">清除例外（改跟部門）</button>
+          </div>
+          <div id="perm-emp-tools" class="perm-emp-tools"></div>
+          <button id="perm-emp-save-btn" class="pixel-btn">儲存員工例外</button>
+        </div>
+        <div class="perm-section">
+          <div class="perm-section-title">稽核紀錄</div>
+          <div id="perm-audit-list" class="perm-audit-list"></div>
+        </div>
       </div>
     </div>
   </div>

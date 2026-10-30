@@ -622,11 +622,17 @@ class BaseAgentRunner:
     _last_usage: dict = {}  # token usage from last run_streamed() call
 
     def _refresh_agent(self) -> None:
-        """Rebuild the LangGraph agent with a fresh LLM instance.
+        """Rebuild the LangGraph agent with a fresh LLM instance and tools.
 
-        Called before each task execution so that model changes in
-        profile.yaml take effect without server restart.
+        Called before each task execution so that model / permission changes
+        in profile.yaml take effect without server restart.
         """
+        if self.employee_id:
+            try:
+                from onemancompany.core.tool_registry import tool_registry
+                self._agent_tools = tool_registry.get_proxied_tools_for(self.employee_id)
+            except Exception:
+                pass
         if self._agent_tools is None:
             return  # subclass didn't store tools — skip refresh
         self._agent = create_react_agent(

@@ -1493,6 +1493,63 @@ async def get_employee_detail(employee_id: str) -> dict:
     return result
 
 
+# ---------------------------------------------------------------------------
+# Permission Center — department × gated-tool matrix + employee exceptions
+# ---------------------------------------------------------------------------
+
+@router.get("/api/permissions")
+async def get_permissions_matrix() -> dict:
+    """Return gated-tool matrix, employee exceptions, and recent permission audit."""
+    from onemancompany.core.permissions import build_permissions_snapshot
+    return build_permissions_snapshot()
+
+
+@router.put("/api/permissions/departments")
+async def put_department_permissions(body: dict) -> dict:
+    """Update department default gated-tool grants. Hot-applies (no restart)."""
+    from onemancompany.core.permissions import save_department_defaults
+
+    departments = body.get("departments")
+    if not isinstance(departments, dict):
+        raise HTTPException(status_code=400, detail="departments must be an object")
+    actor_id = str(body.get("actor_id") or "ceo")
+    saved = save_department_defaults(departments, actor_id=actor_id)
+    return {"status": "ok", "departments": saved}
+
+
+@router.put("/api/permissions/employee/{employee_id}")
+async def put_employee_permissions(employee_id: str, body: dict) -> dict:
+    """Set employee tool_permissions exception (deny-first tokens allowed)."""
+    from onemancompany.core.permissions import set_employee_permissions
+
+    if "tool_permissions" not in body:
+        raise HTTPException(status_code=400, detail="tool_permissions required")
+    tokens = body.get("tool_permissions")
+    if not isinstance(tokens, list):
+        raise HTTPException(status_code=400, detail="tool_permissions must be a list")
+    actor_id = str(body.get("actor_id") or "ceo")
+    try:
+        saved = await set_employee_permissions(
+            employee_id, tokens, actor_id=actor_id
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e)) from e
+    return {"status": "ok", "employee_id": employee_id, "tool_permissions": saved}
+
+
+@router.delete("/api/permissions/employee/{employee_id}")
+async def delete_employee_permission_exception(employee_id: str, request: Request) -> dict:
+    """Clear employee exception so department defaults apply again."""
+    from onemancompany.core.permissions import clear_employee_exception
+
+    actor_id = request.query_params.get("actor_id") or "ceo"
+    try:
+        await clear_employee_exception(employee_id, actor_id=actor_id)
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e)) from e
+    return {"status": "ok", "employee_id": employee_id, "exception": None}
+
+
 @router.post("/api/employee/{employee_id}/fire")
 async def fire_employee(employee_id: str, body: dict) -> dict:
     """Fire an employee directly (CEO action). Cannot fire founding employees."""
