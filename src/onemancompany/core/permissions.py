@@ -406,7 +406,13 @@ def _audit_permission_change(
 
 
 def build_permissions_snapshot() -> dict:
-    """Payload for GET /api/permissions — matrix + employee exceptions + recent audit."""
+    """Payload for GET /api/permissions — capabilities + matrix + audit."""
+    from onemancompany.core.capability_catalog import (
+        all_capabilities,
+        capability_public_dict,
+        presets_public_list,
+        resolve_employee_capability_states,
+    )
     from onemancompany.core.store import load_all_employees, load_activity_log
 
     raw = load_department_raw_tokens()
@@ -426,6 +432,7 @@ def build_permissions_snapshot() -> dict:
         exception = has_employee_exception(emp)
         tokens = list(emp.get(PF_TOOL_PERMISSIONS) or []) if exception else []
         tool_states = {t: employee_tool_state(emp, t) for t in GATED_TOOL_NAMES}
+        cap_states = resolve_employee_capability_states(emp, eid)
         employees_out.append({
             "id": eid,
             "name": emp.get(PF_NAME) or eid,
@@ -435,6 +442,7 @@ def build_permissions_snapshot() -> dict:
             "has_exception": exception,
             "tool_permissions": tokens,
             "tool_states": tool_states,
+            "capability_states": cap_states,
             "effective": sorted(effective_gated_grants(emp)),
         })
 
@@ -444,6 +452,8 @@ def build_permissions_snapshot() -> dict:
     ][:50]
 
     return {
+        "capabilities": [capability_public_dict(c) for c in all_capabilities()],
+        "presets": presets_public_list(),
         "gated_tools": list(GATED_TOOL_NAMES),
         "departments": load_department_defaults(),
         "department_tokens": raw,
@@ -451,4 +461,98 @@ def build_permissions_snapshot() -> dict:
         "department_order": MATRIX_DEPARTMENTS,
         "employees": employees_out,
         "audit": audit,
+    }
+
+
+async def apply_employee_capabilities(
+    employee_id: str,
+    capability_states: dict[str, str],
+    *,
+    actor_id: str = "ceo",
+) -> dict:
+    """Apply human capability toggles → existing permission stores. Hot-applies.
+
+    Does not rewrite capabilities the caller omitted. Display-only caps are ignored.
+    """
+    from onemancompany.core.capability_catalog import (
+        apply_capability_states_to_profile_keys,
+        apply_capability_states_to_tokens,
+        all_capabilities,
+    )
+    from onemancompany.core import store as store_mod
+    from onemancompany.core.config import DirtyCategory, PF_PERMISSIONS
+
+    emp = store_mod.load_employee(employee_id)
+    if not emp:
+        raise ValueError(f"Employee {employee_id} not found")
+
+    # Drop display-only / unknown
+    caps = {c.id: c for c in all_capabilities()}
+    cleaned: dict[str, str] = {}
+    for cid, st in (capability_states or {}).items():
+        cap = caps.get(cid)
+        if not cap or cap.display_only:
+            continue
+        if st not in ("on", "off", "inherit"):
+            continue
+        cleaned[cid] = st
+
+    had_exception = has_employee_exception(emp)
+    existing_tokens = (
+        list(emp.get(PF_TOOL_PERMISSIONS) or []) if had_exception else None
+    )
+    new_tokens = apply_capability_states_to_tokens(
+        capability_states=cleaned,
+        existing_tokens=existing_tokens,
+        had_exception=had_exception,
+    )
+
+    before_tools = existing_tokens
+    if new_tokens is None:
+        after_tools = None
+        if had_exception:
+            await clear_employee_exception(employee_id, actor_id=actor_id)
+    elif sorted(new_tokens) != sorted(existing_tokens or []):
+        after_tools = await set_employee_permissions(
+            employee_id, new_tokens, actor_id=actor_id
+        )
+    else:
+        after_tools = list(existing_tokens or [])
+
+    # Soft profile.permissions
+    new_profile = apply_capability_states_to_profile_keys(
+        capability_states=cleaned,
+        existing_profile_perms=list(emp.get(PF_PERMISSIONS) or []),
+    )
+    if sorted(new_profile) != sorted(emp.get(PF_PERMISSIONS) or []):
+        await store_mod.save_employee(employee_id, {PF_PERMISSIONS: new_profile})
+        store_mod._read_cache_invalidate(DirtyCategory.EMPLOYEES)
+        _audit_permission_change(
+            actor_id=actor_id,
+            target=employee_id,
+            action="update_profile_permissions",
+            before=list(emp.get(PF_PERMISSIONS) or []),
+            after=new_profile,
+        )
+
+    # web_fetch whitelist
+    if "web_fetch" in cleaned:
+        from onemancompany.agents.onboarding import (
+            register_tool_user,
+            unregister_tool_user,
+        )
+        st = cleaned["web_fetch"]
+        if st == "on":
+            register_tool_user("web_fetch", employee_id)
+        elif st == "off":
+            unregister_tool_user("web_fetch", employee_id)
+        # inherit: leave whitelist alone
+
+    refresh_employee_agent_tools(employee_id)
+    return {
+        "employee_id": employee_id,
+        "tool_permissions": after_tools,
+        "permissions": new_profile,
+        "capability_states_applied": cleaned,
+        "before_tool_permissions": before_tools,
     }

@@ -4,6 +4,7 @@
 
 ## 2026-10-30
 
+- **權限中心白話能力開關**（`ary-readable-ui`，尚未部署）：主畫面改「能力」開／關／跟部門一樣＋綠黃紅風險；三預設（一般員工／研究員／技術員）；技術矩陣收進進階設定；員工頁唯讀標籤改白話。不遷移既有權限。詳見 [permission-center.md](permission-center.md)。**等 ARY 同意再 push／部署**。
 - **Harbor 部署 ff71395**（11:54–11:56 AEDT）：映像 `0.7.113-ff71395`；側欄「權限中心」＋三段開關上線；員工授權未改動。回滾 `rollback-pre-permui-20261030T005352`。詳見 [deploy-20261030-permui.md](deploy-20261030-permui.md)。
 - **權限中心 UI 補強**：左側邊欄固定「權限中心」；部門／員工例外三段開關（允許／拒絕／繼承）；儲存 toast。詳見 [permission-center.md](permission-center.md)。
 - **Harbor 部署 b0a0c5c**（11:39–11:41 AEDT，King ops `up --build`）：映像 `harbor-onemancompany:0.7.113-b0a0c5c`；build 期間舊容器仍服務，切換停機約 15–20 秒。回滾映像 `harbor-onemancompany:rollback-pre-permcenter-20261030T003846`（= `0.7.113-4e2eddc`）；資料備份 `omc-data-pre-permcenter-rebuild-20261030T003846.tgz`；compose／.env／.env.example 備份 `*.bak-20261030T003846-pre-permcenter`。部署後權限中心：00004 EA 補 `bash`+`use_tool`；00003 COO 補 `use_tool`；HR／CSO／00006 不變。實測 EA bash 可用；00006 bash 拒絕並有 journal／activity 稽核。詳見 [deploy-20261030-permcenter.md](deploy-20261030-permcenter.md)。

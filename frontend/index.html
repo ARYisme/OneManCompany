@@ -319,7 +319,7 @@
                 <!-- Dynamically rendered from manifest.json settings -->
               </div>
               <div class="emp-detail-section emp-tool-perm-section">
-                <div class="emp-detail-section-title">工具權限（唯讀）</div>
+                <div class="emp-detail-section-title">能力（唯讀）</div>
                 <div id="emp-detail-tool-perms" class="emp-tool-perm-tags">
                   <span class="empty-hint">載入中…</span>
                 </div>
@@ -608,7 +608,7 @@
     </div>
   </div>
 
-  <!-- Permission Center Modal (NAS-style; 三段：允許／拒絕／繼承) -->
+  <!-- Permission Center — 能力開關（白話）＋進階技術矩陣 -->
   <div id="permissions-modal" class="modal-overlay hidden">
     <div class="modal-content permissions-modal-content">
       <div class="modal-header">
@@ -616,30 +616,49 @@
         <button id="permissions-close-btn" class="modal-close">&#10005;</button>
       </div>
       <div class="modal-body permissions-modal-body">
-        <p class="perm-hint">點格子循環：<strong>允許</strong> → <strong>拒絕</strong> → <strong>繼承</strong>。拒絕優先；存檔後立即生效，不用重啟。所有登入者都看得到此頁。</p>
+        <p class="perm-hint">用白話「能力」開關控管員工能做什麼。每項：<strong>開</strong>／<strong>關</strong>／<strong>跟部門一樣</strong>。紅色能力開啟時會再確認。存檔後立即生效。</p>
         <div class="perm-legend">
-          <span class="perm-tri state-allow">允許</span>
-          <span class="perm-tri state-deny">拒絕</span>
-          <span class="perm-tri state-inherit">繼承</span>
+          <span class="cap-risk risk-green">綠＝安全</span>
+          <span class="cap-risk risk-yellow">黃＝要注意</span>
+          <span class="cap-risk risk-red">紅＝危險</span>
         </div>
+
         <div class="perm-section">
-          <div class="perm-section-title">部門 × 工具（部門預設；繼承＝跟程式內建預設）</div>
-          <div id="perm-dept-matrix" class="perm-matrix-wrap"></div>
-          <button id="perm-dept-save-btn" class="pixel-btn">儲存部門預設</button>
-        </div>
-        <div class="perm-section">
-          <div class="perm-section-title">員工例外（繼承＝跟該員工所屬部門）</div>
+          <div class="perm-section-title">員工能力開關</div>
           <div class="perm-emp-controls">
             <select id="perm-emp-select"></select>
-            <button id="perm-emp-clear-btn" class="pixel-btn secondary">全部改繼承（清除例外）</button>
+            <button id="perm-emp-clear-btn" class="pixel-btn secondary">全部改跟部門一樣</button>
           </div>
-          <div id="perm-emp-tools" class="perm-emp-tools"></div>
-          <button id="perm-emp-save-btn" class="pixel-btn">儲存員工例外</button>
+          <div class="perm-presets" id="perm-presets"></div>
+          <div id="perm-capability-list" class="perm-capability-list"></div>
+          <button id="perm-emp-save-btn" class="pixel-btn">儲存能力設定</button>
         </div>
-        <div class="perm-section">
-          <div class="perm-section-title">稽核紀錄</div>
-          <div id="perm-audit-list" class="perm-audit-list"></div>
-        </div>
+
+        <details class="perm-advanced" id="perm-advanced">
+          <summary class="perm-advanced-summary">進階設定（技術矩陣）</summary>
+          <div class="perm-advanced-body">
+            <p class="perm-hint">給技術人員：部門 × 工具名稱，三段開關＝允許／拒絕／繼承。</p>
+            <div class="perm-legend">
+              <span class="perm-tri state-allow">允許</span>
+              <span class="perm-tri state-deny">拒絕</span>
+              <span class="perm-tri state-inherit">繼承</span>
+            </div>
+            <div class="perm-section">
+              <div class="perm-section-title">部門 × 工具</div>
+              <div id="perm-dept-matrix" class="perm-matrix-wrap"></div>
+              <button id="perm-dept-save-btn" class="pixel-btn">儲存部門預設</button>
+            </div>
+            <div class="perm-section">
+              <div class="perm-section-title">員工技術工具例外（進階）</div>
+              <div id="perm-emp-tools" class="perm-emp-tools"></div>
+              <button id="perm-emp-tools-save-btn" class="pixel-btn secondary">儲存技術例外</button>
+            </div>
+            <div class="perm-section">
+              <div class="perm-section-title">稽核紀錄</div>
+              <div id="perm-audit-list" class="perm-audit-list"></div>
+            </div>
+          </div>
+        </details>
       </div>
     </div>
   </div>

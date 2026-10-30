@@ -73,6 +73,34 @@ async def test_put_employee_permissions():
 
 
 @pytest.mark.asyncio
+async def test_put_employee_capability_states():
+    with patch(
+        "onemancompany.core.permissions.apply_employee_capabilities",
+        new_callable=AsyncMock,
+        return_value={
+            "employee_id": "00006",
+            "tool_permissions": ["!bash"],
+            "permissions": ["web_search"],
+            "capability_states_applied": {"bash": "off", "web_search": "on"},
+        },
+    ) as apply:
+        transport = ASGITransport(app=_app())
+        async with AsyncClient(transport=transport, base_url="http://test") as client:
+            resp = await client.put(
+                "/api/permissions/employee/00006",
+                json={
+                    "capability_states": {"bash": "off", "web_search": "on"},
+                    "actor_id": "ceo",
+                },
+            )
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["status"] == "ok"
+    assert body["capability_states_applied"]["bash"] == "off"
+    apply.assert_awaited()
+
+
+@pytest.mark.asyncio
 async def test_delete_employee_exception():
     with patch(
         "onemancompany.core.permissions.clear_employee_exception",

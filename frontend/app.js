@@ -1035,9 +1035,21 @@ class AppController {
       if (e.target.id === 'permissions-modal') this.closePermissionCenter();
     });
     document.getElementById('perm-dept-save-btn')?.addEventListener('click', () => this._savePermissionDepartments());
-    document.getElementById('perm-emp-save-btn')?.addEventListener('click', () => this._savePermissionEmployee());
+    document.getElementById('perm-emp-save-btn')?.addEventListener('click', () => this._savePermissionCapabilities());
+    document.getElementById('perm-emp-tools-save-btn')?.addEventListener('click', () => this._savePermissionEmployee());
     document.getElementById('perm-emp-clear-btn')?.addEventListener('click', () => this._clearPermissionEmployee());
-    document.getElementById('perm-emp-select')?.addEventListener('change', () => this._renderPermissionEmployeeTools());
+    document.getElementById('perm-emp-select')?.addEventListener('change', () => {
+      this._renderPermissionCapabilities();
+      this._renderPermissionEmployeeTools();
+    });
+    document.getElementById('perm-presets')?.addEventListener('click', (e) => {
+      const btn = e.target.closest('.perm-preset-btn[data-preset]');
+      if (btn) this._applyCapabilityPreset(btn.getAttribute('data-preset'));
+    });
+    document.getElementById('perm-capability-list')?.addEventListener('click', (e) => {
+      const btn = e.target.closest('.cap-switch[data-cap-id]');
+      if (btn && !btn.disabled) this._cycleCapabilitySwitch(btn);
+    });
     document.getElementById('perm-dept-matrix')?.addEventListener('click', (e) => {
       const btn = e.target.closest('.perm-tri[data-perm-dept]');
       if (btn) this._cyclePermTri(btn);
@@ -1647,19 +1659,20 @@ class AppController {
     el.innerHTML = '<span class="empty-hint">載入中…</span>';
     try {
       const detail = await fetch(`/api/employee/${encodeURIComponent(employeeId)}`).then(r => r.json());
-      const effective = detail.effective_tool_permissions || [];
+      const labels = detail.capability_labels || [];
       const hasEx = !!detail.has_permission_exception;
-      if (!effective.length) {
-        el.innerHTML = `<span class="perm-tag perm-none">無 gated 工具</span>` +
+      if (!labels.length) {
+        el.innerHTML = `<span class="perm-tag perm-none">尚無開啟的能力</span>` +
           `<span class="emp-perm-source">${hasEx ? '（員工例外）' : '（部門預設）'}</span>`;
       } else {
-        el.innerHTML = effective.map(t =>
-          `<span class="perm-tag perm-tool">${this._escapeHtml(t)}</span>`
-        ).join(' ') +
+        el.innerHTML = labels.map(c => {
+          const risk = c.risk || 'yellow';
+          return `<span class="perm-tag perm-cap-${this._escapeHtml(risk)}" title="${this._escapeHtml(c.risk_label || '')}">${this._escapeHtml(c.name)}</span>`;
+        }).join(' ') +
           `<span class="emp-perm-source">${hasEx ? '（員工例外）' : '（部門預設）'}</span>`;
       }
     } catch (e) {
-      el.innerHTML = '<span class="empty-hint">無法載入工具權限</span>';
+      el.innerHTML = '<span class="empty-hint">無法載入能力標籤</span>';
     }
   }
 
@@ -6248,19 +6261,164 @@ class AppController {
 
   async _loadPermissionCenter() {
     const matrixEl = document.getElementById('perm-dept-matrix');
+    const capEl = document.getElementById('perm-capability-list');
     const auditEl = document.getElementById('perm-audit-list');
     if (matrixEl) matrixEl.innerHTML = '<span class="empty-hint">載入中…</span>';
+    if (capEl) capEl.innerHTML = '<span class="empty-hint">載入中…</span>';
     try {
       const data = await fetch('/api/permissions').then(r => r.json());
       this._permData = data;
-      this._renderPermissionDeptMatrix();
       this._renderPermissionEmployeeSelect();
+      this._renderPermissionPresets();
+      this._renderPermissionCapabilities();
+      this._renderPermissionDeptMatrix();
       this._renderPermissionEmployeeTools();
       this._renderPermissionAudit();
     } catch (e) {
       if (matrixEl) matrixEl.innerHTML = '<span class="empty-hint">載入權限失敗</span>';
+      if (capEl) capEl.innerHTML = '<span class="empty-hint">載入能力失敗</span>';
       if (auditEl) auditEl.innerHTML = '';
     }
+  }
+
+  _capStateLabel(state) {
+    if (state === 'on') return '開';
+    if (state === 'off') return '關';
+    return '跟部門一樣';
+  }
+
+  _capNextState(state) {
+    if (state === 'on') return 'off';
+    if (state === 'off') return 'inherit';
+    return 'on';
+  }
+
+  _renderPermissionPresets() {
+    const el = document.getElementById('perm-presets');
+    const data = this._permData;
+    if (!el || !data) return;
+    const presets = data.presets || [];
+    if (!presets.length) {
+      el.innerHTML = '';
+      return;
+    }
+    el.innerHTML = presets.map(p =>
+      `<button type="button" class="perm-preset-btn" data-preset="${this._escapeHtml(p.id)}" title="${this._escapeHtml(p.blurb || '')}">` +
+      `${this._escapeHtml(p.label || p.id)}` +
+      `<span class="preset-blurb">${this._escapeHtml(p.blurb || '')}</span></button>`
+    ).join('');
+  }
+
+  _renderPermissionCapabilities() {
+    const wrap = document.getElementById('perm-capability-list');
+    const sel = document.getElementById('perm-emp-select');
+    const data = this._permData;
+    if (!wrap || !sel || !data) return;
+    const emp = (data.employees || []).find(e => e.id === sel.value);
+    const caps = data.capabilities || [];
+    if (!emp) {
+      wrap.innerHTML = '<span class="empty-hint">沒有員工</span>';
+      return;
+    }
+    const states = emp.capability_states || {};
+    let html = `<div class="perm-emp-meta">${this._escapeHtml(emp.nickname || emp.name)} · ${this._escapeHtml(emp.department)}` +
+      `${emp.has_exception ? ' · 有個人例外' : ' · 跟部門預設'}</div>`;
+    for (const cap of caps) {
+      const stInfo = states[cap.id] || {};
+      const st = stInfo.state || 'inherit';
+      const risk = cap.risk || 'yellow';
+      const controllable = cap.controllable !== false && !cap.display_only;
+      const toolsHint = (cap.gated_tools || []).length
+        ? `對應：${(cap.gated_tools || []).join(', ')}`
+        : (cap.profile_keys || []).length
+          ? `對應：${(cap.profile_keys || []).join(', ')}`
+          : (cap.asset_tool ? `對應：${cap.asset_tool}` : '');
+      const disabled = controllable ? '' : ' disabled';
+      html += `<div class="cap-row risk-${this._escapeHtml(risk)}">` +
+        `<div><div class="cap-name">${this._escapeHtml(cap.name)}</div>` +
+        `<div class="cap-desc">${this._escapeHtml(cap.description || '')}</div>` +
+        `<div class="cap-meta"><span class="cap-risk risk-${this._escapeHtml(risk)}">${this._escapeHtml(cap.risk_label || risk)}</span>` +
+        (toolsHint ? `<span class="cap-tools-hint">${this._escapeHtml(toolsHint)}</span>` : '') +
+        (stInfo.effective_on ? '<span class="cap-effective">目前生效中</span>' : '') +
+        `</div></div>` +
+        `<button type="button" class="cap-switch state-${this._escapeHtml(st)}" data-state="${this._escapeHtml(st)}" ` +
+        `data-cap-id="${this._escapeHtml(cap.id)}" data-risk="${this._escapeHtml(risk)}"${disabled}>` +
+        `${this._capStateLabel(st)}</button></div>`;
+    }
+    wrap.innerHTML = html;
+  }
+
+  _cycleCapabilitySwitch(btn) {
+    const risk = btn.getAttribute('data-risk') || '';
+    const cur = btn.getAttribute('data-state') || 'inherit';
+    const next = this._capNextState(cur);
+    if (risk === 'red' && next === 'on') {
+      const name = btn.closest('.cap-row')?.querySelector('.cap-name')?.textContent || '此能力';
+      if (!confirm(
+        `「${name}」屬於危險能力，可以直接操作系統。\n只應給信任的技術員工。\n\n確定要開啟？`
+      )) return;
+    }
+    btn.setAttribute('data-state', next);
+    btn.className = `cap-switch state-${next}`;
+    btn.textContent = this._capStateLabel(next);
+  }
+
+  _applyCapabilityPreset(presetId) {
+    const data = this._permData;
+    if (!data) return;
+    const preset = (data.presets || []).find(p => p.id === presetId);
+    if (!preset) return;
+    const states = preset.states || {};
+    const caps = { ...(data.capabilities || []).reduce((m, c) => { m[c.id] = c; return m; }, {}) };
+    // Confirm if preset turns on any red capability
+    const redOn = Object.entries(states).filter(([cid, st]) => {
+      const cap = caps[cid];
+      return cap && cap.risk === 'red' && st === 'on';
+    });
+    if (redOn.length) {
+      if (!confirm(
+        `預設「${preset.label}」會開啟危險能力（例如在電腦上執行指令）。\n只給信任的技術員工。\n\n確定套用？`
+      )) return;
+    }
+    document.querySelectorAll('#perm-capability-list .cap-switch[data-cap-id]').forEach(btn => {
+      if (btn.disabled) return;
+      const cid = btn.getAttribute('data-cap-id');
+      if (!(cid in states)) return;
+      const next = states[cid];
+      btn.setAttribute('data-state', next);
+      btn.className = `cap-switch state-${next}`;
+      btn.textContent = this._capStateLabel(next);
+    });
+    this._showToast(`已套用「${preset.label}」，可再微調後儲存`, 'success');
+  }
+
+  _collectCapabilityStates() {
+    const states = {};
+    document.querySelectorAll('#perm-capability-list .cap-switch[data-cap-id]').forEach(btn => {
+      if (btn.disabled) return;
+      const cid = btn.getAttribute('data-cap-id');
+      const st = btn.getAttribute('data-state') || 'inherit';
+      if (cid) states[cid] = st;
+    });
+    return states;
+  }
+
+  async _savePermissionCapabilities() {
+    const sel = document.getElementById('perm-emp-select');
+    if (!sel || !sel.value) return;
+    const capability_states = this._collectCapabilityStates();
+    const resp = await fetch(`/api/permissions/employee/${encodeURIComponent(sel.value)}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ capability_states, actor_id: 'ceo' }),
+    });
+    if (!resp.ok) {
+      this._showToast('儲存能力設定失敗', 'error');
+      return;
+    }
+    this._showToast('能力設定已儲存，立即生效', 'success');
+    this._permHighlightEmployeeId = sel.value;
+    await this._loadPermissionCenter();
   }
 
   _renderPermissionDeptMatrix() {

@@ -1476,9 +1476,17 @@ async def get_employee_detail(employee_id: str) -> dict:
         result["has_permission_exception"] = has_employee_exception(_perm_emp)
         if has_employee_exception(_perm_emp):
             result["tool_permissions"] = list(_perm_emp.get("tool_permissions") or [])
+        try:
+            from onemancompany.core.capability_catalog import capability_labels_for_effective
+            result["capability_labels"] = capability_labels_for_effective(
+                _perm_emp, employee_id
+            )
+        except Exception:
+            result.setdefault("capability_labels", [])
     except Exception:
         result.setdefault("effective_tool_permissions", [])
         result.setdefault("has_permission_exception", False)
+        result.setdefault("capability_labels", [])
 
     # Include manifest if available
     manifest = load_manifest(employee_id)
@@ -1534,15 +1542,37 @@ async def put_department_permissions(body: dict) -> dict:
 
 @router.put("/api/permissions/employee/{employee_id}")
 async def put_employee_permissions(employee_id: str, body: dict) -> dict:
-    """Set employee tool_permissions exception (deny-first tokens allowed)."""
-    from onemancompany.core.permissions import set_employee_permissions
+    """Set employee tool_permissions exception (deny-first tokens allowed).
+
+    Prefer ``capability_states`` for the human-readable Permission Center UI.
+    Legacy ``tool_permissions`` list still supported for advanced matrix saves.
+    """
+    from onemancompany.core.permissions import (
+        apply_employee_capabilities,
+        set_employee_permissions,
+    )
+
+    actor_id = str(body.get("actor_id") or "ceo")
+    if "capability_states" in body:
+        states = body.get("capability_states")
+        if not isinstance(states, dict):
+            raise HTTPException(status_code=400, detail="capability_states must be an object")
+        try:
+            result = await apply_employee_capabilities(
+                employee_id, states, actor_id=actor_id
+            )
+        except ValueError as e:
+            raise HTTPException(status_code=404, detail=str(e)) from e
+        return {"status": "ok", **result}
 
     if "tool_permissions" not in body:
-        raise HTTPException(status_code=400, detail="tool_permissions required")
+        raise HTTPException(
+            status_code=400,
+            detail="capability_states or tool_permissions required",
+        )
     tokens = body.get("tool_permissions")
     if not isinstance(tokens, list):
         raise HTTPException(status_code=400, detail="tool_permissions must be a list")
-    actor_id = str(body.get("actor_id") or "ceo")
     try:
         saved = await set_employee_permissions(
             employee_id, tokens, actor_id=actor_id

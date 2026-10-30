@@ -1,50 +1,69 @@
-# 權限中心（Permission Center）
+# 權限中心（Permission Center）— 白話能力開關
 
-時間：2026-10-30（AEDT）。不含 secret。
+時間：2026-10-30（AEDT）。不含 secret。僅 `ary-readable-ui` 顯示／操作層；**不自動改寫既有員工權限資料**。
 
 ## 一句話
 
-左側邊欄固定「權限中心」入口；部門×工具、員工例外都是**三段開關**（允許／拒絕／繼承），按儲存後有成功提示，立即生效。
+主畫面改成「能力開關」（白話名稱＋說明＋綠／黃／紅風險），三段：開／關／跟部門一樣；技術矩陣收進預設收合的「進階設定」。
 
-## 入口（所有登入者都看得到）
+## 入口
 
 | 位置 | 說明 |
 |---|---|
-| **左側邊欄最上** | 綠色框按鈕「🔒 權限中心」（主要入口，固定可見） |
-| 頂部狀態列 | 鎖頭＋「權限」小字（次要；窄螢幕可能要橫滑） |
-| 職員詳情 → 概覽 | 「到權限中心管理」（該頁本身是**唯讀**標籤，不能改） |
+| **左側邊欄最上** | 「🔒 權限中心」 |
+| 頂部狀態列 | 鎖頭＋「權限」 |
+| 職員詳情 → 概覽 | 唯讀「能力」標籤（同白話名稱）＋連到權限中心 |
 
-沒有另設帳號權限：只要能開 OMC 後台，就能開權限中心。
+## 能力對照
 
-## 三段開關
-
-點格子循環：**允許 → 拒絕 → 繼承 → 允許**
-
-| 狀態 | 部門矩陣意義 | 員工例外意義 |
+| 白話 | 風險 | 底層 |
 |---|---|---|
-| 允許 | 此部門明確給此工具 | 此員工明確給 |
-| 拒絕 | 此部門明確不給（`!tool`） | 此員工明確不給（拒絕優先） |
-| 繼承 | 跟程式內建部門預設 | 跟該員工所屬部門的生效結果 |
+| 上網查資料 | 綠 | profile `web_search` |
+| 讀取指定網頁 | 綠 | `web_fetch` allowed_users |
+| 讀寫公司文件 | 黃 | profile `company_file_access` |
+| 寫 Email 草稿 | 黃 | 顯示用（不能寄出；不可由此開關改） |
+| 使用公司工具和設備 | 黃 | gated `use_tool` |
+| 排程與定時工作 | 黃 | cron／webhook 類 gated |
+| 發通知 | 黃 | notify／report gated |
+| 在電腦上執行指令 | 紅 | gated `bash`（開啟需確認） |
+| 其他 | 黃 | 其餘 gated 工具 |
 
-- 員工若「全部繼承」再儲存 → 會清除例外（跟部門）。
-- 舊的空白例外 `tool_permissions: []`（如 00006）仍視為**全部拒絕**（相容）。
+## 一鍵預設
 
-## 儲存
+- **一般員工**／**研究員**／**技術員**：只改畫面上的草稿，按「儲存能力設定」才寫入。
+- 紅色能力開啟（含技術員預設）會跳出確認。
 
-- 「儲存部門預設」「儲存員工例外」：成功會跳出綠色 toast。
-- 寫入 `company/human_resource/tool_permissions.yaml`（version 2）或員工 `profile.yaml`；不用重啟。
+## 進階設定
+
+`<details>` 預設收合：部門×工具三段（允許／拒絕／繼承）、員工技術例外、稽核。
 
 ## API
 
 | 方法 | 路徑 | 作用 |
 |---|---|---|
-| GET | `/api/permissions` | 含 `department_states`／`tool_states`（allow\|deny\|inherit） |
-| PUT | `/api/permissions/departments` | 存部門 token（可含 `!tool`） |
-| PUT | `/api/permissions/employee/{id}` | 設例外 |
+| GET | `/api/permissions` | 含 `capabilities`、`presets`、`capability_states`＋原矩陣 |
+| PUT | `/api/permissions/employee/{id}` | body `capability_states`（白話）或 `tool_permissions`（進階） |
+| PUT | `/api/permissions/departments` | 部門預設 |
 | DELETE | `/api/permissions/employee/{id}` | 清除例外 |
+| GET | `/api/employee/{id}` | 含 `capability_labels`（白話唯讀標籤） |
+
+## 不變性
+
+部署此 UI **不會**遷移或覆寫現有 `tool_permissions`／部門 YAML；只有操作者按儲存才變更該員工。
 
 ## 測試
 
+- `tests/unit/core/test_capability_catalog.py`
 - `tests/unit/core/test_permissions.py`
 - `tests/unit/api/test_permissions_routes.py`
 - `tests/frontend/test_permission_center_ui.js`
+
+## UI 說明（截圖替代）
+
+主畫面由上而下：
+
+1. 員工下拉＋「全部改跟部門一樣」
+2. 三個預設按鈕（一般員工／研究員／技術員）
+3. 能力列：名稱、一句說明、風險色條、開／關／跟部門一樣
+4. 「儲存能力設定」
+5. 收合的「進階設定（技術矩陣）」→ 展開後才見部門表與技術工具名
