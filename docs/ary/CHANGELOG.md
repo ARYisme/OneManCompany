@@ -4,7 +4,8 @@
 
 ## 2026-10-30
 
-- **權限中心 UI 補強**（程式已改、**尚未部署**）：左側邊欄固定「權限中心」入口；部門／員工例外改成三段開關（允許／拒絕／繼承）；儲存成功有 toast。詳見 [permission-center.md](permission-center.md)。
+- **Harbor 部署 ff71395**（11:54–11:56 AEDT）：映像 `0.7.113-ff71395`；側欄「權限中心」＋三段開關上線；員工授權未改動。回滾 `rollback-pre-permui-20261030T005352`。詳見 [deploy-20261030-permui.md](deploy-20261030-permui.md)。
+- **權限中心 UI 補強**：左側邊欄固定「權限中心」；部門／員工例外三段開關（允許／拒絕／繼承）；儲存 toast。詳見 [permission-center.md](permission-center.md)。
 - **Harbor 部署 b0a0c5c**（11:39–11:41 AEDT，King ops `up --build`）：映像 `harbor-onemancompany:0.7.113-b0a0c5c`；build 期間舊容器仍服務，切換停機約 15–20 秒。回滾映像 `harbor-onemancompany:rollback-pre-permcenter-20261030T003846`（= `0.7.113-4e2eddc`）；資料備份 `omc-data-pre-permcenter-rebuild-20261030T003846.tgz`；compose／.env／.env.example 備份 `*.bak-20261030T003846-pre-permcenter`。部署後權限中心：00004 EA 補 `bash`+`use_tool`；00003 COO 補 `use_tool`；HR／CSO／00006 不變。實測 EA bash 可用；00006 bash 拒絕並有 journal／activity 稽核。詳見 [deploy-20261030-permcenter.md](deploy-20261030-permcenter.md)。
 - **職員詳情四分頁**：概覽／任務／紀錄／調教。概覽顯示唯讀工具權限標籤＋連到權限中心（此頁不能改權限）；1-on-1 與原則／筆記留在調教。詳見 [employee-detail-tabs.md](employee-detail-tabs.md)。**尚未部署**。
 - **權限中心**：工具列新增 Permission Center（部門×gated 工具矩陣、員工例外允許／拒絕、稽核清單）。存檔寫 `tool_permissions.yaml`／員工 profile，熱生效不用重啟；拒絕優先（`!tool`）。API：`GET/PUT /api/permissions*`。詳見 [permission-center.md](permission-center.md)。**尚未部署**。
