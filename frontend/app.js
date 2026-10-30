@@ -8298,7 +8298,7 @@ class AppController {
     this._projectsPanelTimer = setTimeout(() => this._doUpdateProjectsPanel(), 300);
   }
 
-  _renderProjectCard(p) {
+  _renderProjectCard(p, opts = {}) {
     const card = document.createElement('div');
     const iterStatus = p.latest_iter_status || '';
     let statusClass = 'running';
@@ -8315,16 +8315,86 @@ class AppController {
     const meta = p.iteration_count != null
       ? `${p.iteration_count} iteration${p.iteration_count !== 1 ? 's' : ''} · ${p.status}`
       : p.status;
+    const organize = !!opts.organize;
     card.innerHTML = `
-      <div class="project-panel-name">${this._escHtml(displayName)}</div>
-      <div class="project-panel-meta">${meta}</div>
+      ${organize ? '<input type="checkbox" class="project-organize-check" />' : ''}
+      <div class="project-panel-body">
+        <div class="project-panel-name">${this._escHtml(displayName)}</div>
+        <div class="project-panel-meta">${meta}</div>
+      </div>
     `;
     card.style.cursor = 'pointer';
-    card.addEventListener('click', () => {
-      this._openProjectDetail(p.project_id);
-      this._selectCeoProject(p.project_id);
-    });
+    if (organize) {
+      card.classList.add('organize-selectable');
+      const check = card.querySelector('.project-organize-check');
+      card.addEventListener('click', (e) => {
+        if (e.target === check) return;
+        check.checked = !check.checked;
+        card.classList.toggle('selected', check.checked);
+      });
+      check.addEventListener('click', (e) => e.stopPropagation());
+      check.addEventListener('change', () => {
+        card.classList.toggle('selected', check.checked);
+      });
+    } else {
+      card.addEventListener('click', () => {
+        this._openProjectDetail(p.project_id);
+        this._selectCeoProject(p.project_id);
+      });
+    }
     return card;
+  }
+
+  _setProjectsOrganizeMode(on) {
+    this._projectsOrganizeMode = !!on;
+    this.updateProjectsPanel();
+  }
+
+  async _organizeSelectedProjects(action) {
+    const panel = document.getElementById('projects-panel-list');
+    if (!panel) return;
+    const ids = [...panel.querySelectorAll('.project-organize-check:checked')]
+      .map(el => el.closest('.project-panel-card')?.dataset.projectId)
+      .filter(Boolean);
+    if (!ids.length) {
+      this._showToast('請先勾選專案', 'info');
+      return;
+    }
+
+    const body = { action, project_ids: ids };
+    if (action === 'assign') {
+      const productId = panel.querySelector('#orphan-organize-product')?.value || '';
+      if (!productId) {
+        this._showToast('請選擇要歸入的 Product', 'info');
+        return;
+      }
+      body.product_id = productId;
+    } else if (action === 'archive') {
+      if (!confirm(`確定封存 ${ids.length} 個專案？`)) return;
+    }
+
+    try {
+      const resp = await fetch('/api/projects/organize', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+      const data = await resp.json();
+      if (!resp.ok) {
+        this._showToast(data.detail || '整理失敗', 'error');
+        return;
+      }
+      const n = (data.done || []).length;
+      this._showToast(
+        action === 'assign' ? `已歸類 ${n} 個專案` : `已封存 ${n} 個專案`,
+        'info'
+      );
+      this._projectsOrganizeMode = false;
+      this.updateProjectsPanel();
+    } catch (err) {
+      console.error('[_organizeSelectedProjects]', err);
+      this._showToast('整理失敗', 'error');
+    }
   }
 
   // ===== Toast Notifications =====
@@ -10214,6 +10284,7 @@ class AppController {
 
         // === Orphan projects ===
         if (orphans.length > 0) {
+          const organizeMode = !!this._projectsOrganizeMode;
           const orphanState = expandState['_orphan'] || { main: true };
           const group = document.createElement('div');
           group.className = `product-group orphan-group${orphanState.main ? '' : ' collapsed'}`;
@@ -10225,6 +10296,15 @@ class AppController {
             <span class="product-expand-arrow">${orphanState.main ? '\u25BE' : '\u25B8'}</span>
             <span class="product-group-name">\u672A\u5F52\u7C7B (${orphans.length})</span>
           `;
+          const organizeBtn = document.createElement('button');
+          organizeBtn.className = 'product-detail-btn orphan-organize-btn';
+          organizeBtn.textContent = organizeMode ? '\u5B8C\u6210' : '\u6574\u7406';
+          organizeBtn.title = organizeMode ? 'Exit organize mode' : 'Organize uncategorized projects';
+          organizeBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            this._setProjectsOrganizeMode(!organizeMode);
+          });
+          header.appendChild(organizeBtn);
           header.addEventListener('click', () => {
             group.classList.toggle('collapsed');
             header.querySelector('.product-expand-arrow').textContent = group.classList.contains('collapsed') ? '\u25B8' : '\u25BE';
@@ -10233,12 +10313,41 @@ class AppController {
 
           const body = document.createElement('div');
           body.className = 'product-group-body';
+
+          if (organizeMode) {
+            const toolbar = document.createElement('div');
+            toolbar.className = 'orphan-organize-toolbar';
+            const productOpts = products.map(item => {
+              const prod = item.product || {};
+              const id = prod.id || '';
+              const name = prod.name || prod.slug || id;
+              return id ? `<option value="${this._escHtml(id)}">${this._escHtml(name)}</option>` : '';
+            }).join('');
+            toolbar.innerHTML = `
+              <select id="orphan-organize-product" class="roster-filter-select" title="Target product">
+                <option value="">\u9078 Product\u2026</option>
+                ${productOpts}
+              </select>
+              <button type="button" class="pixel-btn small" data-org-action="assign">\u6B78\u985E</button>
+              <button type="button" class="pixel-btn small secondary" data-org-action="archive">\u5C01\u5B58</button>
+            `;
+            toolbar.querySelector('[data-org-action="assign"]')
+              ?.addEventListener('click', (e) => { e.stopPropagation(); this._organizeSelectedProjects('assign'); });
+            toolbar.querySelector('[data-org-action="archive"]')
+              ?.addEventListener('click', (e) => { e.stopPropagation(); this._organizeSelectedProjects('archive'); });
+            toolbar.querySelector('#orphan-organize-product')
+              ?.addEventListener('click', (e) => e.stopPropagation());
+            body.appendChild(toolbar);
+          }
+
           const sorted = this._sortProjectsNewestFirst(orphans);
           for (const p of sorted) {
-            body.appendChild(this._renderProjectCard(p));
+            body.appendChild(this._renderProjectCard(p, { organize: organizeMode }));
           }
           group.appendChild(body);
           frag.appendChild(group);
+        } else if (this._projectsOrganizeMode) {
+          this._projectsOrganizeMode = false;
         }
 
         panel.innerHTML = '';
@@ -10408,11 +10517,17 @@ class AppController {
 
   _renderProjectDetail(projectId, proj, contentEl) {
     const totalCost = proj.total_cost_usd || 0;
-    let headerHtml = `<div style="margin-bottom:8px;display:flex;align-items:center;gap:8px;">
+    let headerHtml = `<div style="margin-bottom:8px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
       <span class="project-name-editable" data-project-id="${this._escHtml(projectId)}" title="Click to rename" style="color:var(--pixel-cyan);font-size:8px;cursor:pointer;border-bottom:1px dashed var(--text-dim);">${this._escHtml(proj.name || projectId)}</span>
       <span style="color:var(--text-dim);font-size:6px;">${proj.status}</span>
       ${totalCost > 0 ? `<span style="color:var(--pixel-yellow);font-size:6px;">$${totalCost.toFixed(4)}</span>` : ''}
-      <button onclick="app.openTraceViewer('${this._escHtml(projectId)}','${this._escHtml(proj.name || projectId)}')" style="margin-left:auto;background:#1a1a1a;color:#4af;border:1px solid #333;padding:1px 8px;font-size:6px;cursor:pointer;font-family:monospace">TRACE</button>
+      <label style="display:flex;align-items:center;gap:4px;font-size:6px;color:var(--text-dim);margin-left:auto;">
+        Product
+        <select id="project-detail-product" class="roster-filter-select" style="max-width:140px;" title="Assign to product">
+          <option value="">\u672A\u5F52\u7C7B</option>
+        </select>
+      </label>
+      <button onclick="app.openTraceViewer('${this._escHtml(projectId)}','${this._escHtml(proj.name || projectId)}')" style="background:#1a1a1a;color:#4af;border:1px solid #333;padding:1px 8px;font-size:6px;cursor:pointer;font-family:monospace">TRACE</button>
       <button onclick="app._deleteProject('${this._escHtml(projectId)}')" style="background:#1a1a1a;color:var(--pixel-red);border:1px solid #500;padding:1px 8px;font-size:6px;cursor:pointer;font-family:monospace" title="Delete project and all data">DELETE</button>
     </div>`;
 
@@ -10448,6 +10563,50 @@ class AppController {
     const archiveBtn = contentEl.querySelector('.archive-project-btn');
     if (archiveBtn) {
       archiveBtn.addEventListener('click', () => this._archiveProject(projectId));
+    }
+
+    // Product assign dropdown
+    const productSel = contentEl.querySelector('#project-detail-product');
+    if (productSel) {
+      const currentProductId = proj.product_id || '';
+      fetch('/api/products')
+        .then(r => r.json())
+        .then(list => {
+          const products = Array.isArray(list) ? list : (list.products || []);
+          for (const prod of products) {
+            const opt = document.createElement('option');
+            opt.value = prod.id || '';
+            opt.textContent = prod.name || prod.slug || prod.id;
+            if (opt.value && opt.value === currentProductId) opt.selected = true;
+            productSel.appendChild(opt);
+          }
+          if (currentProductId && ![...productSel.options].some(o => o.value === currentProductId)) {
+            const opt = document.createElement('option');
+            opt.value = currentProductId;
+            opt.textContent = currentProductId;
+            opt.selected = true;
+            productSel.appendChild(opt);
+          }
+        })
+        .catch(err => console.error('[project product list]', err));
+      productSel.addEventListener('change', () => {
+        const productId = productSel.value || '';
+        fetch(`/api/projects/${encodeURIComponent(projectId)}/product`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ product_id: productId }),
+        }).then(r => r.json()).then(d => {
+          if (d.status === 'ok') {
+            this._showToast(productId ? '已歸類到 Product' : '已移出 Product（未歸類）', 'info');
+            this.updateProjectsPanel();
+          } else {
+            this._showToast(d.detail || '歸類失敗', 'error');
+          }
+        }).catch(err => {
+          console.error('[assign product]', err);
+          this._showToast('歸類失敗', 'error');
+        });
+      });
     }
 
     // Bind click on iteration cards

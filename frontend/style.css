@@ -2848,6 +2848,9 @@ h3.pixel-title { font-size: var(--text-label); }
 /* ===== Projects Panel ===== */
 .project-panel-card {
   position: relative;
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
   padding: var(--sp-1) var(--sp-2);
   border-left: 3px solid var(--pixel-white);
   margin-bottom: 3px;
@@ -2860,6 +2863,34 @@ h3.pixel-title { font-size: var(--text-label); }
 .project-panel-card:hover {
   background: rgba(255, 255, 255, 0.08);
   border-left-width: 4px;
+}
+
+.project-panel-card.organize-selectable.selected {
+  background: rgba(92, 122, 234, 0.18);
+}
+
+.project-panel-body {
+  flex: 1;
+  min-width: 0;
+}
+
+.project-organize-check {
+  margin-top: 2px;
+  flex-shrink: 0;
+}
+
+.orphan-organize-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  align-items: center;
+  margin: 4px 0 8px;
+  padding: 4px;
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.orphan-organize-btn {
+  margin-left: auto;
 }
 
 /* Status-based sidebar border colors */

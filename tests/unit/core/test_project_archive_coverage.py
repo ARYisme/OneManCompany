@@ -196,6 +196,45 @@ class TestUpdateProjectName:
 
 
 # ---------------------------------------------------------------------------
+# update_project_product
+# ---------------------------------------------------------------------------
+
+class TestUpdateProjectProduct:
+    def test_assign_and_clear_product(self, tmp_path, monkeypatch):
+        import onemancompany.core.project_archive as pa_mod
+        monkeypatch.setattr(pa_mod, "PROJECTS_DIR", tmp_path)
+
+        proj_dir = tmp_path / "proj1"
+        proj_dir.mkdir()
+        with open(proj_dir / "project.yaml", "w") as f:
+            yaml.dump({"name": "Orphan", "product_id": "", "iterations": []}, f)
+
+        with patch.object(pa_mod, "_setup_product_worktree") as setup, \
+             patch.object(pa_mod, "_cleanup_product_worktree") as cleanup:
+            assert pa_mod.update_project_product("proj1", "prod-1") is True
+            setup.assert_called_once_with("proj1", "prod-1")
+            cleanup.assert_not_called()
+
+            with open(proj_dir / "project.yaml") as f:
+                doc = yaml.safe_load(f)
+            assert doc["product_id"] == "prod-1"
+
+            setup.reset_mock()
+            assert pa_mod.update_project_product("proj1", "") is True
+            cleanup.assert_called_once()
+            setup.assert_not_called()
+
+        with open(proj_dir / "project.yaml") as f:
+            doc = yaml.safe_load(f)
+        assert doc["product_id"] == ""
+
+    def test_update_product_nonexistent(self, tmp_path, monkeypatch):
+        import onemancompany.core.project_archive as pa_mod
+        monkeypatch.setattr(pa_mod, "PROJECTS_DIR", tmp_path)
+        assert pa_mod.update_project_product("missing", "prod-1") is False
+
+
+# ---------------------------------------------------------------------------
 # create_project_from_task (lines 322-325)
 # ---------------------------------------------------------------------------
 

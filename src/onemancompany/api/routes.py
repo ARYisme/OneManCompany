@@ -3132,6 +3132,83 @@ async def rename_project(project_id: str, body: dict) -> dict:
     return {"status": "ok", "name": name}
 
 
+@router.patch("/api/projects/{project_id}/product")
+async def assign_project_product(project_id: str, body: dict) -> dict:
+    """Assign (or clear) the product a project belongs to."""
+    from onemancompany.core.config import PROJECTS_DIR as _PROJ_DIR
+    from onemancompany.core.project_archive import update_project_product
+    from onemancompany.core.product import find_slug_by_product_id
+
+    candidate = _PROJ_DIR / project_id / "project.yaml"
+    if not candidate.exists():
+        raise HTTPException(404, "Project not found")
+
+    product_id = (body.get("product_id") or "").strip()
+    if product_id and not find_slug_by_product_id(product_id):
+        raise HTTPException(400, "Product not found")
+
+    ok = update_project_product(project_id, product_id)
+    if not ok:
+        raise HTTPException(404, "Project not found")
+    await event_bus.publish(CompanyEvent(type=EventType.STATE_SNAPSHOT, payload={}, agent=SYSTEM_AGENT))
+    return {"status": "ok", "project_id": project_id, "product_id": product_id}
+
+
+@router.post("/api/projects/organize")
+async def organize_projects(body: dict) -> dict:
+    """Batch organize projects: assign to a product or archive.
+
+    Body:
+      action: "assign" | "archive"
+      project_ids: list[str]
+      product_id: str (required when action=assign)
+    """
+    from onemancompany.core.config import PROJECTS_DIR as _PROJ_DIR
+    from onemancompany.core.project_archive import archive_project, update_project_product
+    from onemancompany.core.product import find_slug_by_product_id
+
+    action = (body.get("action") or "").strip()
+    project_ids = body.get("project_ids") or []
+    if not isinstance(project_ids, list) or not project_ids:
+        raise HTTPException(400, "project_ids required")
+    if action not in ("assign", "archive"):
+        raise HTTPException(400, "action must be assign or archive")
+
+    product_id = (body.get("product_id") or "").strip()
+    if action == "assign":
+        if not product_id:
+            raise HTTPException(400, "product_id required for assign")
+        if not find_slug_by_product_id(product_id):
+            raise HTTPException(400, "Product not found")
+
+    done: list[str] = []
+    skipped: list[str] = []
+    for pid in project_ids:
+        if not isinstance(pid, str) or not pid.strip():
+            continue
+        pid = pid.strip()
+        if not (_PROJ_DIR / pid / "project.yaml").exists():
+            skipped.append(pid)
+            continue
+        if action == "assign":
+            if update_project_product(pid, product_id):
+                done.append(pid)
+            else:
+                skipped.append(pid)
+        else:
+            archive_project(pid)
+            done.append(pid)
+
+    await event_bus.publish(CompanyEvent(type=EventType.STATE_SNAPSHOT, payload={}, agent=SYSTEM_AGENT))
+    return {
+        "status": "ok",
+        "action": action,
+        "product_id": product_id if action == "assign" else "",
+        "done": done,
+        "skipped": skipped,
+    }
+
+
 @router.post("/api/projects/continue")
 async def continue_iteration(body: dict) -> dict:
     """Continue an existing iteration without creating a new one.
@@ -7218,10 +7295,12 @@ async def api_products_panel() -> dict:
     products = prod.list_products()
     all_projects = list_projects()
 
-    # Group projects by product_id
+    # Group active projects by product_id (archived stay out of panel clutter)
     product_project_map: dict[str, list] = {}
     orphan_projects: list = []
     for p in all_projects:
+        if p.get("status") == "archived":
+            continue
         pid = p.get("product_id", "")
         if pid:
             product_project_map.setdefault(pid, []).append(p)

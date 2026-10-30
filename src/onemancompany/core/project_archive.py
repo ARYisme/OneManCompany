@@ -314,6 +314,30 @@ def update_project_name(project_id: str, new_name: str) -> None:
             yaml.dump(doc, f, allow_unicode=True, default_flow_style=False)
 
 
+def update_project_product(project_id: str, product_id: str = "") -> bool:
+    """Assign or clear a project's product link. Returns False if missing."""
+    path = PROJECTS_DIR / project_id / PROJECT_YAML_FILENAME
+    lock = _get_project_lock(project_id)
+    old_product_id = ""
+    new_product_id = (product_id or "").strip()
+    with lock:
+        if not path.exists():
+            return False
+        with open_utf(path) as f:
+            doc = yaml.safe_load(f) or {}
+        old_product_id = (doc.get("product_id") or "").strip()
+        if old_product_id == new_product_id:
+            return True
+        if old_product_id:
+            _cleanup_product_worktree(project_id, doc)
+        doc["product_id"] = new_product_id
+        with open_utf(path, "w") as f:
+            yaml.dump(doc, f, allow_unicode=True, default_flow_style=False)
+    if new_product_id:
+        _setup_product_worktree(project_id, new_product_id)
+    return True
+
+
 def create_project_from_task(task: str, routed_to: str = "pending",
                              participants: list[str] | None = None,
                              product_id: str = "") -> tuple[str, str]:
