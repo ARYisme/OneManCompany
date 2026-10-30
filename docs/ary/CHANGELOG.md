@@ -4,6 +4,7 @@
 
 ## 2026-10-30
 
+- **Harbor 部署 eb76e88**（12:30–12:33 AEDT）：映像 `0.7.113-eb76e88`；繼承格顯示生效結果、內建預設按鈕、能力「跟部門一樣（目前：開/關）」、員工三欄、頂部鎖頭去字＋側欄縮小；五員工權限不變。回滾 `rollback-pre-inheritui-20261030T013006`。詳見 [deploy-20261030-inheritui.md](deploy-20261030-inheritui.md)。
 - **Harbor 部署 9bf7c5f**（12:15–12:18 AEDT）：映像 `0.7.113-9bf7c5f`；白話能力開關上線；五員工權限與部署前完全一致。回滾 `rollback-pre-capui-20261030T011519`。截圖見 [screenshots/](screenshots/)。詳見 [deploy-20261030-capui.md](deploy-20261030-capui.md)。
 - **權限中心白話能力開關**：主畫面改「能力」開／關／跟部門一樣＋綠黃紅風險；三預設（一般員工／研究員／技術員）；技術矩陣收進進階設定；員工頁唯讀標籤改白話。不遷移既有權限。詳見 [permission-center.md](permission-center.md)。
 - **Harbor 部署 ff71395**（11:54–11:56 AEDT）：映像 `0.7.113-ff71395`；側欄「權限中心」＋三段開關上線；員工授權未改動。回滾 `rollback-pre-permui-20261030T005352`。詳見 [deploy-20261030-permui.md](deploy-20261030-permui.md)。
