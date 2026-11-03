@@ -2,6 +2,12 @@
 
 此 fork 以上游 1mancompany/OneManCompany `3fde188` 為基底（Apache-2.0）。以下為 ARY 的修改，時間為 AEDT。
 
+## 2026-11-03
+
+### 已部署／進行中
+
+- **Harbor 部署 b2df6a5**（13:13–13:15 AEDT／10:13–10:15+08）：映像 `0.7.113-b2df6a5`；恢復 Documents 逐檔／ZIP 下載與 Product 根目錄文件 API；修復 project `{iteration_id}`、sprint `{sprint_id}` 路由陰影。回滾 `rollback-pre-download-20261103T021306`。豆芽菜 `negotiation-playbook.md` API↔disk SHA256 MATCH。截圖見 [screenshots/download-verify-b2df6a5.png](screenshots/download-verify-b2df6a5.png)。詳見 [deploy-20261103-download.md](deploy-20261103-download.md)。
+
 ## 2026-10-30
 
 ### 已部署／進行中
