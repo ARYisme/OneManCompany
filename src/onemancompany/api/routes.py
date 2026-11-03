@@ -3898,16 +3898,6 @@ async def get_project_plugin_data(project_id: str, plugin_id: str) -> dict:
     return plugin_registry.transform(plugin_id, dispatches, ctx)
 
 
-@router.get("/api/projects/{project_id}/{iteration_id}")
-async def get_iteration_detail(project_id: str, iteration_id: str) -> dict:
-    """Get iteration detail via qualified path: /api/projects/{slug}/{iter_id}."""
-    import re
-    if not re.match(r"^iter_\d+$", iteration_id):
-        raise HTTPException(404, "Not found")
-    qualified = f"{project_id}/{iteration_id}"
-    return await get_project_detail(qualified)
-
-
 @router.get("/api/projects/{project_id}")
 async def get_project_detail(project_id: str) -> dict:
     """Get full project detail including timeline and workspace files."""
@@ -4161,6 +4151,20 @@ async def download_project_workspace(project_id: str):
         media_type="application/zip",
         headers={"Content-Disposition": f'attachment; filename="{safe_name}_workspace.zip"; filename*=UTF-8\'\'{encoded_name}'},
     )
+
+
+@router.get("/api/projects/{project_id}/{iteration_id}")
+async def get_iteration_detail(project_id: str, iteration_id: str) -> dict:
+    """Get iteration detail via qualified path: /api/projects/{slug}/{iter_id}.
+
+    Registered after /ls, /download, /files, /tree so static suffixes are not
+    shadowed by this catch-all second path segment.
+    """
+    import re
+    if not re.match(r"^iter_\d+$", iteration_id):
+        raise HTTPException(404, "Not found")
+    qualified = f"{project_id}/{iteration_id}"
+    return await get_project_detail(qualified)
 
 
 # ===== Ex-Employees =====
@@ -7686,6 +7690,132 @@ async def api_export_product(slug: str) -> dict:
     return bundle
 
 
+# User-facing product documents (e.g. negotiation-playbook.md at product root).
+# Static suffixes (/ls, /files, /download) must stay before any future
+# ``/api/product/{slug}/{catch_all}`` route to avoid path-param shadowing.
+_PRODUCT_DOC_SKIP_DIRS = frozenset({
+    "issues", "sprints", "conversations", "reviews", "versions",
+    "activity", "workspace", "nodes",
+})
+_PRODUCT_DOC_SKIP_FILES = frozenset({"product.yaml"})
+
+
+def _product_docs_root(slug: str) -> Path:
+    from onemancompany.core.product import _product_dir
+
+    root = _product_dir(slug)
+    if not root.is_dir():
+        raise HTTPException(status_code=404, detail=f"Product '{slug}' not found")
+    return root
+
+
+def _product_docs_target(slug: str, file_path: str = "") -> tuple[Path, Path]:
+    root = _product_docs_root(slug)
+    target = (root / file_path).resolve() if file_path else root.resolve()
+    if not str(target).startswith(str(root.resolve())):
+        raise HTTPException(status_code=403, detail="Path traversal denied")
+    return root, target
+
+
+@router.get("/api/product/{slug}/ls")
+async def list_product_docs_dir(slug: str, path: str = "") -> dict:
+    """List immediate children of user-facing docs under a product directory."""
+    _root, target = _product_docs_target(slug, path)
+    if not target.is_dir():
+        raise HTTPException(status_code=404, detail="Not a directory")
+
+    entries = []
+    for item in sorted(target.iterdir()):
+        name = item.name
+        if name.startswith(".") and name != ".gitignore":
+            continue
+        if name in _PRODUCT_DOC_SKIP_FILES or name in _PRODUCT_DOC_SKIP_DIRS:
+            continue
+        entries.append({"name": name, "type": "dir" if item.is_dir() else "file"})
+    return {"path": path, "entries": entries}
+
+
+@router.get("/api/product/{slug}/files/{file_path:path}")
+async def get_product_doc_file(slug: str, file_path: str):
+    """Read a user-facing file from a product directory."""
+    from fastapi.responses import Response
+
+    _root, target = _product_docs_target(slug, file_path)
+    # Block internal infrastructure paths even if requested directly
+    parts = Path(file_path).parts
+    if any(p in _PRODUCT_DOC_SKIP_DIRS for p in parts) or Path(file_path).name in _PRODUCT_DOC_SKIP_FILES:
+        raise HTTPException(status_code=404, detail="Not found")
+    if not target.is_file():
+        raise HTTPException(status_code=404, detail="Not found")
+
+    suffix = target.suffix.lower()
+    text_types = {".txt", ".md", ".py", ".js", ".html", ".css", ".yaml", ".yml",
+                  ".json", ".csv", ".tsv", ".xml", ".sh", ".toml", ".cfg", ".ini",
+                  ".log", ".rst", ".tex", ".sql", ".r", ".rb", ".go", ".java",
+                  ".c", ".cpp", ".h", ".hpp", ".rs", ".swift", ".kt", ".ts", ".tsx", ".jsx"}
+    if suffix in text_types:
+        content = target.read_text(encoding=ENCODING_UTF8, errors="replace")
+        media = "text/plain; charset=utf-8"
+        if suffix == ".html":
+            media = "text/html; charset=utf-8"
+        elif suffix == ".json":
+            media = "application/json; charset=utf-8"
+        elif suffix == ".md":
+            media = "text/markdown; charset=utf-8"
+        return Response(content=content, media_type=media)
+
+    content = target.read_bytes()
+    media = "application/octet-stream"
+    if suffix == ".png":
+        media = "image/png"
+    elif suffix in (".jpg", ".jpeg"):
+        media = "image/jpeg"
+    elif suffix == ".gif":
+        media = "image/gif"
+    elif suffix == ".svg":
+        media = "image/svg+xml"
+    elif suffix == ".pdf":
+        media = "application/pdf"
+    return Response(content=content, media_type=media)
+
+
+@router.get("/api/product/{slug}/download")
+async def download_product_docs(slug: str):
+    """Download user-facing product documents as a zip (excludes internal dirs)."""
+    import io
+    import zipfile
+    from urllib.parse import quote
+
+    from fastapi.responses import StreamingResponse
+
+    root = _product_docs_root(slug)
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
+        for fpath in root.rglob("*"):
+            if not fpath.is_file():
+                continue
+            rel = fpath.relative_to(root)
+            if any(part in _PRODUCT_DOC_SKIP_DIRS for part in rel.parts):
+                continue
+            if rel.name in _PRODUCT_DOC_SKIP_FILES or rel.name.startswith("."):
+                continue
+            zf.write(fpath, rel)
+    buf.seek(0)
+
+    safe_name = slug.encode("ascii", "ignore").decode() or "product"
+    encoded_name = quote(f"{slug}_documents.zip", safe="")
+    return StreamingResponse(
+        buf,
+        media_type="application/zip",
+        headers={
+            "Content-Disposition": (
+                f'attachment; filename="{safe_name}_documents.zip"; '
+                f"filename*=UTF-8''{encoded_name}"
+            )
+        },
+    )
+
+
 @router.post("/api/product/import")
 async def api_import_product(request: Request) -> dict:
     """Import a product from a JSON bundle. Creates product, KRs, issues, then auto-starts."""
@@ -7823,6 +7953,19 @@ async def api_list_sprints(slug: str, status: str = "") -> list[dict]:
     return prod.list_sprints(slug, status=status or None)
 
 
+@router.get("/api/product/{slug}/sprint/suggest-capacity")
+async def api_suggest_sprint_capacity(slug: str) -> dict:
+    """Suggest sprint capacity based on historical velocity (sliding average of last 3).
+
+    Must be registered before ``/sprint/{sprint_id}`` so ``suggest-capacity`` is not
+    swallowed as a sprint_id path parameter.
+    """
+    from onemancompany.core import product as prod
+
+    suggestion = prod.suggest_capacity(slug)
+    return {"suggested_capacity": suggestion}
+
+
 @router.get("/api/product/{slug}/sprint/{sprint_id}")
 async def api_get_sprint(slug: str, sprint_id: str) -> dict:
     """Get a single sprint by ID."""
@@ -7899,15 +8042,6 @@ async def api_delete_sprint(slug: str, sprint_id: str) -> dict:
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc))
     return {"ok": True}
-
-
-@router.get("/api/product/{slug}/sprint/suggest-capacity")
-async def api_suggest_sprint_capacity(slug: str) -> dict:
-    """Suggest sprint capacity based on historical velocity (sliding average of last 3)."""
-    from onemancompany.core import product as prod
-
-    suggestion = prod.suggest_capacity(slug)
-    return {"suggested_capacity": suggestion}
 
 
 # ---------------------------------------------------------------------------

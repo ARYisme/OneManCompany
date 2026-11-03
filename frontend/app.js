@@ -5076,8 +5076,13 @@ class AppController {
         }
 
         // Documents — lazy tree (click to expand directories)
-        html += `<div style="font-size:7px;color:var(--pixel-cyan);margin:8px 0 4px;">Documents:</div>`;
-        html += `<div class="lazy-file-tree" data-project-id="${this._escHtml(projectId)}" data-path="" style="font-size:6px;">
+        const bareEncoded = String(projectId || '').split('/').map(encodeURIComponent).join('/');
+        const bareFileRoot = `/api/projects/${bareEncoded}`;
+        html += `<div style="font-size:7px;color:var(--pixel-cyan);margin:8px 0 4px;display:flex;justify-content:space-between;align-items:center;">
+          <span>Documents:</span>
+          <a href="${bareFileRoot}/download" style="font-size:5px;color:var(--pixel-green);text-decoration:none;border:1px solid var(--border);padding:1px 6px;cursor:pointer;">Download ZIP</a>
+        </div>`;
+        html += `<div class="lazy-file-tree" data-project-id="${this._escHtml(projectId)}" data-file-root="${this._escHtml(bareFileRoot)}" data-path="" style="font-size:6px;">
           <div style="color:var(--text-dim);">Loading files...</div>
         </div>`;
 
@@ -7947,17 +7952,21 @@ class AppController {
     trees.forEach(tree => {
       if (tree.dataset.initialized) return;
       tree.dataset.initialized = '1';
+      const fileRoot = tree.dataset.fileRoot || (() => {
+        const pid = tree.dataset.projectId || '';
+        const encoded = pid.split('/').map(encodeURIComponent).join('/');
+        return encoded ? `/api/projects/${encoded}` : '';
+      })();
+      tree.dataset.fileRoot = fileRoot;
       // Auto-load first level immediately — subdirectories are lazy
-      this._loadLazyDir(tree, tree.dataset.projectId, '');
+      this._loadLazyDir(tree, fileRoot, '');
     });
   }
 
-  async _loadLazyDir(container, projectId, dirPath) {
+  async _loadLazyDir(container, fileRoot, dirPath) {
     container.innerHTML = '<div style="color:var(--text-dim);">Loading...</div>';
     try {
-      // Encode each path segment individually to preserve '/' separators (e.g. slug/iter_001)
-      const encodedId = projectId.split('/').map(encodeURIComponent).join('/');
-      const url = `/api/projects/${encodedId}/ls?path=${encodeURIComponent(dirPath)}`;
+      const url = `${fileRoot}/ls?path=${encodeURIComponent(dirPath)}`;
       const resp = await fetch(url);
       if (!resp.ok) { container.innerHTML = '<div style="color:var(--pixel-red);">Failed to load</div>'; return; }
       const data = await resp.json();
@@ -7972,16 +7981,16 @@ class AppController {
       for (const entry of entries) {
         const childPath = dirPath ? `${dirPath}/${entry.name}` : entry.name;
         if (entry.type === 'dir') {
-          html += `<div class="lazy-dir-entry" style="padding:2px 0;cursor:pointer;color:var(--pixel-yellow);" data-dir-path="${esc(childPath)}" data-project-id="${esc(projectId)}">`;
+          html += `<div class="lazy-dir-entry" style="padding:2px 0;cursor:pointer;color:var(--pixel-yellow);" data-dir-path="${esc(childPath)}" data-file-root="${esc(fileRoot)}">`;
           html += `<span class="lazy-dir-arrow">\u25B6</span> ${esc(entry.name)}/`;
           html += `</div>`;
           html += `<div class="lazy-dir-children hidden" style="padding-left:12px;"></div>`;
         } else {
           const ext = entry.name.split('.').pop().toLowerCase();
-          const encodedPid = projectId.split('/').map(encodeURIComponent).join('/');
-          const fileUrl = `/api/projects/${encodedPid}/files/${encodeURIComponent(childPath)}`;
-          html += `<div class="project-file-item" data-file="${esc(childPath)}" data-url="${esc(fileUrl)}" data-ext="${ext}" style="padding:2px 0;color:var(--pixel-green);cursor:pointer;">`;
-          html += `${iconFor(ext)} ${esc(entry.name)}`;
+          const fileUrl = `${fileRoot}/files/${encodeURIComponent(childPath)}`;
+          html += `<div class="project-file-item" data-file="${esc(childPath)}" data-url="${esc(fileUrl)}" data-ext="${ext}" style="padding:2px 0;color:var(--pixel-green);display:flex;align-items:center;gap:8px;">`;
+          html += `<span class="project-file-open" style="cursor:pointer;flex:1;">${iconFor(ext)} ${esc(entry.name)}</span>`;
+          html += `<a href="${esc(fileUrl)}" download="${esc(entry.name)}" class="project-file-download" style="font-size:5px;color:var(--pixel-cyan);text-decoration:none;border:1px solid var(--border);padding:1px 5px;cursor:pointer;flex-shrink:0;">\u2B07 Download</a>`;
           html += `</div>`;
         }
       }
@@ -7997,23 +8006,55 @@ class AppController {
             childrenEl.dataset.loaded = '1';
             childrenEl.classList.remove('hidden');
             dir.querySelector('.lazy-dir-arrow').textContent = '\u25BE';
-            this._loadLazyDir(childrenEl, dir.dataset.projectId, dir.dataset.dirPath);
+            this._loadLazyDir(childrenEl, dir.dataset.fileRoot, dir.dataset.dirPath);
           }
         });
       });
-      // Wire file click handlers
-      this._wireFileItemClicks(container, projectId);
+      // Wire file open + download handlers
+      this._wireFileItemClicks(container);
     } catch (err) {
       container.innerHTML = `<div style="color:var(--pixel-red);">Error: ${this._escHtml(err.message)}</div>`;
     }
   }
 
-  _wireFileItemClicks(container, projectId) {
+  _wireFileItemClicks(container) {
     container.querySelectorAll('.project-file-item').forEach(item => {
-      item.addEventListener('click', () => {
+      const openEl = item.querySelector('.project-file-open') || item;
+      openEl.addEventListener('click', () => {
         this._openProjectFile(item.dataset.file, item.dataset.url, item.dataset.ext);
       });
+      const dl = item.querySelector('.project-file-download');
+      if (dl) {
+        dl.addEventListener('click', (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          this._downloadFile(item.dataset.url, item.dataset.file);
+        });
+      }
     });
+  }
+
+  async _downloadFile(url, filename) {
+    const baseName = String(filename || 'download').split('/').pop() || 'download';
+    try {
+      const resp = await fetch(url);
+      if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+      const blob = await resp.blob();
+      const objUrl = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = objUrl;
+      a.download = baseName;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(objUrl);
+    } catch (err) {
+      console.error('[downloadFile] failed, falling back to navigation:', err);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = baseName;
+      a.click();
+    }
   }
 
   _renderMarkdown(md) {
@@ -8635,6 +8676,30 @@ class AppController {
       });
     });
     container.appendChild(ownerEl);
+
+    // Documents (product-root user artifacts, e.g. negotiation-playbook.md)
+    const docsLabel = document.createElement('div');
+    docsLabel.className = 'product-section-label';
+    docsLabel.style.display = 'flex';
+    docsLabel.style.justifyContent = 'space-between';
+    docsLabel.style.alignItems = 'center';
+    const docsTitle = document.createElement('span');
+    docsTitle.textContent = 'Documents';
+    docsLabel.appendChild(docsTitle);
+    const productFileRoot = `/api/product/${encodeURIComponent(slug)}`;
+    const docsZip = document.createElement('a');
+    docsZip.href = `${productFileRoot}/download`;
+    docsZip.textContent = 'Download ZIP';
+    docsZip.style.cssText = 'font-size:5px;color:var(--pixel-green);text-decoration:none;border:1px solid var(--border);padding:1px 6px;cursor:pointer;';
+    docsLabel.appendChild(docsZip);
+    container.appendChild(docsLabel);
+    const docsTree = document.createElement('div');
+    docsTree.className = 'lazy-file-tree';
+    docsTree.dataset.fileRoot = productFileRoot;
+    docsTree.style.fontSize = '6px';
+    docsTree.innerHTML = '<div style="color:var(--text-dim);">Loading files...</div>';
+    container.appendChild(docsTree);
+    this._initLazyFileTrees(container);
 
     // KR Section
     const krLabel = document.createElement('div');
@@ -10752,12 +10817,13 @@ class AppController {
           </div>
         </div>`;
 
-        const downloadUrl = `/api/projects/${qualifiedPath}/download`;
+        const iterFileRoot = `/api/projects/${qualifiedPath}`;
+        const downloadUrl = `${iterFileRoot}/download`;
         detailHtml += `<div style="font-size:7px;color:var(--pixel-cyan);margin:6px 0 3px;display:flex;justify-content:space-between;align-items:center;">
           <span>Documents</span>
           <a href="${downloadUrl}" style="font-size:5px;color:var(--pixel-green);text-decoration:none;border:1px solid var(--border);padding:1px 6px;cursor:pointer;">Download ZIP</a>
         </div>`;
-        detailHtml += `<div class="lazy-file-tree" data-project-id="${this._escHtml(qualifiedPath)}" data-path="" style="font-size:6px;">
+        detailHtml += `<div class="lazy-file-tree" data-project-id="${this._escHtml(qualifiedPath)}" data-file-root="${this._escHtml(iterFileRoot)}" data-path="" style="font-size:6px;">
           <div style="color:var(--text-dim);">Loading files...</div>
         </div>`;
 
@@ -11026,6 +11092,7 @@ class AppController {
           this._showFileViewer(
             filename,
             `<div style="max-height:65vh;overflow-y:auto;margin:0;padding:8px;background:var(--bg-dark);border:1px solid var(--border);"><div class="md-rendered">${this._renderMarkdown(text)}</div></div>`,
+            url,
           );
         })
         .catch(err => { console.error('[viewMarkdown] failed, opening in new tab:', err); window.open(url, '_blank', 'noopener'); });
@@ -11034,27 +11101,24 @@ class AppController {
 
     if (imageExts.includes(fileExt)) {
       // Open image in a simple overlay
-      this._showFileViewer(filename, `<img src="${url}" style="max-width:100%;max-height:70vh;" />`);
+      this._showFileViewer(filename, `<img src="${url}" style="max-width:100%;max-height:70vh;" />`, url);
     } else if (textExts.includes(fileExt)) {
       // Fetch text content and display
       fetch(url)
         .then(r => r.text())
         .then(text => {
-          this._showFileViewer(filename, `<pre style="font-size:6px;color:var(--pixel-white);white-space:pre-wrap;word-break:break-all;max-height:65vh;overflow-y:auto;margin:0;padding:6px;background:var(--bg-dark);border:1px solid var(--border);">${this._escHtml(text)}</pre>`);
+          this._showFileViewer(filename, `<pre style="font-size:6px;color:var(--pixel-white);white-space:pre-wrap;word-break:break-all;max-height:65vh;overflow-y:auto;margin:0;padding:6px;background:var(--bg-dark);border:1px solid var(--border);">${this._escHtml(text)}</pre>`, url);
         })
         .catch(err => { console.error('[viewFile] failed, opening in new tab:', err); window.open(url, '_blank', 'noopener'); });
     } else if (fileExt === 'pdf') {
       window.open(url, '_blank', 'noopener');
     } else {
       // Download other files
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = filename;
-      a.click();
+      this._downloadFile(url, filename);
     }
   }
 
-  _showFileViewer(filename, contentHtml) {
+  _showFileViewer(filename, contentHtml, downloadUrl = '') {
     // Reuse or create a file viewer overlay
     let viewer = document.getElementById('file-viewer-overlay');
     if (!viewer) {
@@ -11067,17 +11131,31 @@ class AppController {
       document.body.appendChild(viewer);
     }
     viewer.style.display = 'flex';
+    const baseName = String(filename || 'download').split('/').pop() || 'download';
+    const dlHtml = downloadUrl
+      ? `<a href="${this._escHtml(downloadUrl)}" download="${this._escHtml(baseName)}" id="file-viewer-download-btn" style="font-size:6px;color:var(--pixel-cyan);margin-right:8px;text-decoration:underline;cursor:pointer;">\u2B07 Download</a>`
+      : '';
     viewer.innerHTML = `
       <div style="max-width:750px;width:100%;background:var(--bg-panel);border:1px solid var(--pixel-cyan);padding:8px;">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
           <span style="color:var(--pixel-cyan);font-size:7px;">${this._escHtml(filename)}</span>
-          <button id="file-viewer-close-btn" style="background:none;border:1px solid var(--border);color:var(--pixel-white);cursor:pointer;font-size:7px;padding:2px 6px;">\u2715</button>
+          <div style="display:flex;align-items:center;">
+            ${dlHtml}
+            <button id="file-viewer-close-btn" style="background:none;border:1px solid var(--border);color:var(--pixel-white);cursor:pointer;font-size:7px;padding:2px 6px;">\u2715</button>
+          </div>
         </div>
         ${contentHtml}
       </div>`;
     document.getElementById('file-viewer-close-btn').addEventListener('click', () => {
       viewer.style.display = 'none';
     });
+    const dlBtn = document.getElementById('file-viewer-download-btn');
+    if (dlBtn && downloadUrl) {
+      dlBtn.addEventListener('click', (e) => {
+        e.preventDefault();
+        this._downloadFile(downloadUrl, filename);
+      });
+    }
   }
 
   _archiveProject(projectId) {
